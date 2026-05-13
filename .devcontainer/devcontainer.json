@@ -5,11 +5,9 @@
   "image": "mcr.microsoft.com/devcontainers/universal:2-linux",
 
   "features": {
-    // Docker-in-Docker: lets us run docker compose inside Codespace
-    "ghcr.io/devcontainers/features/docker-in-docker:2": {
-      "version": "latest",
-      "moby": true
-    }
+    // docker-outside-docker: mounts host Docker socket — no new daemon needed.
+    // Avoids the yarn GPG bug that breaks docker-in-docker on universal:2-linux.
+    "ghcr.io/devcontainers/features/docker-outside-docker:1": {}
   },
 
   // Recommend 4-core/16GB for running the full stack
