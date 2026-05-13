@@ -4,9 +4,9 @@
   // Universal image: Python 3.11, Node, git, common tools pre-installed
   "image": "mcr.microsoft.com/devcontainers/universal:2-linux",
 
+  // Explicitly declare docker-outside-docker so Codespaces doesn't inject an uncontrolled version.
+  // Uses the Docker socket from the host VM (no nested Docker daemon needed).
   "features": {
-    // docker-outside-docker: mounts host Docker socket — no new daemon needed.
-    // Avoids the yarn GPG bug that breaks docker-in-docker on universal:2-linux.
     "ghcr.io/devcontainers/features/docker-outside-docker:1": {}
   },
 
