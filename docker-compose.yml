@@ -54,7 +54,7 @@ services:
     ports:
       - "5432:5432"
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U olist"]
+      test: ["CMD-SHELL", "pg_isready -U olist -d postgres"]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -165,11 +165,11 @@ services:
         condition: service_healthy
     entrypoint: |
       /bin/bash -c "
-        rpk -X brokers=redpanda:9092 topic create olist.orders   --partitions 3 --replicas 1 --if-not-exists &&
-        rpk -X brokers=redpanda:9092 topic create olist.reviews  --partitions 3 --replicas 1 --if-not-exists &&
-        rpk -X brokers=redpanda:9092 topic create olist.payments --partitions 3 --replicas 1 --if-not-exists &&
-        rpk -X brokers=redpanda:9092 topic create olist.leads    --partitions 2 --replicas 1 --if-not-exists &&
-        rpk -X brokers=redpanda:9092 topic create olist.deals    --partitions 2 --replicas 1 --if-not-exists &&
+        rpk -X brokers=redpanda:9092 topic create olist.orders   --partitions 3 --replicas 1  &&
+        rpk -X brokers=redpanda:9092 topic create olist.reviews  --partitions 3 --replicas 1  &&
+        rpk -X brokers=redpanda:9092 topic create olist.payments --partitions 3 --replicas 1  &&
+        rpk -X brokers=redpanda:9092 topic create olist.leads    --partitions 2 --replicas 1  &&
+        rpk -X brokers=redpanda:9092 topic create olist.deals    --partitions 2 --replicas 1  &&
         echo '=== Redpanda topics ready ===' &&
         rpk -X brokers=redpanda:9092 topic list
       "
@@ -335,12 +335,13 @@ services:
     container_name: olist-mlflow
     restart: unless-stopped
     command: >
+      sh -c "pip install --quiet psycopg2-binary &&
       mlflow server
         --backend-store-uri postgresql://olist:${POSTGRES_PASSWORD:-olistpass}@postgres:5432/mlflow
         --default-artifact-root s3://olist-lakehouse/mlflow
         --host 0.0.0.0
         --port 5000
-        --serve-artifacts
+        --serve-artifacts"
     environment:
       MLFLOW_S3_ENDPOINT_URL: ${S3_ENDPOINT}
       AWS_ACCESS_KEY_ID: ${S3_ACCESS_KEY}
