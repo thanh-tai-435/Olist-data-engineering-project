@@ -91,7 +91,7 @@ services:
     ports:
       - "8181:8181"
     healthcheck:
-      test: ["CMD-SHELL", "wget -qO- http://localhost:8181/v1/config || exit 1"]
+      test: ["CMD-SHELL", "bash -c '</dev/tcp/localhost/8181'"]
       interval: 10s
       timeout: 5s
       retries: 10
