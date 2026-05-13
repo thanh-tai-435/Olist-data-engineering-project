@@ -1,0 +1,73 @@
+{
+  "name": "Olist Data Lakehouse",
+
+  // Universal image: Python 3.11, Node, git, common tools pre-installed
+  "image": "mcr.microsoft.com/devcontainers/universal:2-linux",
+
+  "features": {
+    // Docker-in-Docker: lets us run docker compose inside Codespace
+    "ghcr.io/devcontainers/features/docker-in-docker:2": {
+      "version": "latest",
+      "moby": true
+    }
+  },
+
+  // Recommend 4-core/16GB for running the full stack
+  // Change in: Codespace settings → Machine type
+  "hostRequirements": {
+    "cpus": 4,
+    "memory": "16gb",
+    "storage": "32gb"
+  },
+
+  // Install Python deps after container is created
+  "postCreateCommand": "bash .devcontainer/setup.sh",
+
+  // Auto-forward all service ports
+  "forwardPorts": [
+    4200,   // Prefect UI
+    5000,   // MLflow UI
+    5432,   // PostgreSQL
+    8080,   // Redpanda Console
+    8082,   // Trino UI
+    8090,   // Spark Master UI
+    8181,   // Iceberg REST Catalog
+    8501,   // Streamlit BI
+    18081,  // Redpanda Schema Registry
+    19092   // Redpanda Kafka API
+  ],
+
+  "portsAttributes": {
+    "4200":  { "label": "Prefect UI",          "onAutoForward": "notify" },
+    "5000":  { "label": "MLflow UI",           "onAutoForward": "notify" },
+    "8080":  { "label": "Redpanda Console",    "onAutoForward": "notify" },
+    "8082":  { "label": "Trino UI",            "onAutoForward": "silent" },
+    "8090":  { "label": "Spark Master UI",     "onAutoForward": "silent" },
+    "8181":  { "label": "Iceberg REST",        "onAutoForward": "silent" },
+    "8501":  { "label": "Streamlit BI",        "onAutoForward": "notify" },
+    "5432":  { "label": "PostgreSQL",          "onAutoForward": "silent" }
+  },
+
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "ms-python.python",
+        "ms-python.vscode-pylance",
+        "ms-azuretools.vscode-docker",
+        "dbt-labs.dbt-power-user",
+        "innoverio.vscode-dbt-power-user",
+        "redhat.vscode-yaml",
+        "ms-toolsai.jupyter"
+      ],
+      "settings": {
+        "python.defaultInterpreterPath": "/usr/local/bin/python3",
+        "terminal.integrated.defaultProfile.linux": "bash"
+      }
+    }
+  },
+
+  "remoteEnv": {
+    "DOCKER_BUILDKIT": "1",
+    "COMPOSE_DOCKER_CLI_BUILD": "1"
+  }
+}
