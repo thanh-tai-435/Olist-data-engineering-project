@@ -1,9 +1,0 @@
-{
-  "permissions": {
-    "allow": [
-      "Bash(powershell *)",
-      "Bash(Get-Item \"D:\\\\HOCTAP\\\\HK3\\\\NhaKhoDuLieuVaTichHOp\\\\Olist-data-engineering-project\\\\architecture.html\")",
-      "Bash(Select-Object Name, Length, LastWriteTime)"
-    ]
-  }
-}
