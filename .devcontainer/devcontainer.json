@@ -19,7 +19,7 @@
   },
 
   // Install Python deps after container is created
-  "postCreateCommand": "bash .devcontainer/setup.sh",
+  "postCreateCommand": "sh .devcontainer/setup.sh",
 
   // Auto-forward all service ports
   "forwardPorts": [
