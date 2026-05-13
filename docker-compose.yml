@@ -91,11 +91,11 @@ services:
     ports:
       - "8181:8181"
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8181/v1/config"]
+      test: ["CMD-SHELL", "wget -qO- http://localhost:8181/v1/config || exit 1"]
       interval: 10s
       timeout: 5s
       retries: 10
-      start_period: 20s
+      start_period: 30s
     networks:
       - lakehouse
 
@@ -165,12 +165,12 @@ services:
         condition: service_healthy
     entrypoint: |
       /bin/bash -c "
-        rpk -X brokers=redpanda:9092 topic create olist.orders   --partitions 3 --replicas 1  &&
-        rpk -X brokers=redpanda:9092 topic create olist.reviews  --partitions 3 --replicas 1  &&
-        rpk -X brokers=redpanda:9092 topic create olist.payments --partitions 3 --replicas 1  &&
-        rpk -X brokers=redpanda:9092 topic create olist.leads    --partitions 2 --replicas 1  &&
-        rpk -X brokers=redpanda:9092 topic create olist.deals    --partitions 2 --replicas 1  &&
-        echo '=== Redpanda topics ready ===' &&
+        rpk -X brokers=redpanda:9092 topic create olist.orders   --partitions 3 --replicas 1 || true
+        rpk -X brokers=redpanda:9092 topic create olist.reviews  --partitions 3 --replicas 1 || true
+        rpk -X brokers=redpanda:9092 topic create olist.payments --partitions 3 --replicas 1 || true
+        rpk -X brokers=redpanda:9092 topic create olist.leads    --partitions 2 --replicas 1 || true
+        rpk -X brokers=redpanda:9092 topic create olist.deals    --partitions 2 --replicas 1 || true
+        echo '=== Redpanda topics ready ==='
         rpk -X brokers=redpanda:9092 topic list
       "
     networks:
