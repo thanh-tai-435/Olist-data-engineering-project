@@ -4,11 +4,11 @@
   // Universal image: Python 3.11, Node, git, common tools pre-installed
   "image": "mcr.microsoft.com/devcontainers/universal:2-linux",
 
-  // Explicitly declare docker-outside-docker so Codespaces doesn't inject an uncontrolled version.
-  // Uses the Docker socket from the host VM (no nested Docker daemon needed).
-  "features": {
-    "ghcr.io/devcontainers/features/docker-outside-docker:1": {}
-  },
+  // Mount host Docker socket directly — no feature needed.
+  // universal:2-linux already ships with Docker CLI, so this is sufficient.
+  "mounts": [
+    "source=/var/run/docker.sock,target=/var/run/docker.sock,type=bind"
+  ],
 
   // Recommend 4-core/16GB for running the full stack
   // Change in: Codespace settings → Machine type
