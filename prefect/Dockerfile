@@ -10,7 +10,5 @@ WORKDIR /app
 COPY requirements-worker.txt .
 RUN pip install --no-cache-dir -r requirements-worker.txt
 
-# Copy flow code (overridden by volume mount in compose)
+# Copy flow code (ingestion/ and dbt/ are mounted via volumes in compose)
 COPY prefect/flows ./flows
-COPY ingestion ./ingestion
-COPY dbt ./dbt
