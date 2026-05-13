@@ -1,0 +1,521 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Olist Data Lakehouse Platform — Architecture</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    background: #0f172a;
+    min-height: 100vh;
+    display: flex;
+    align-items: flex-start;
+    justify-content: center;
+    padding: 32px 16px;
+    font-family: system-ui, -apple-system, 'Segoe UI', sans-serif;
+  }
+  .card {
+    background: #ffffff;
+    border-radius: 16px;
+    padding: 24px;
+    box-shadow: 0 4px 32px rgba(0,0,0,0.4);
+    overflow-x: auto;
+  }
+</style>
+</head>
+<body>
+<div class="card">
+<svg width="1600" height="920" viewBox="0 0 1600 920" xmlns="http://www.w3.org/2000/svg"
+     style="font-family: system-ui, -apple-system, 'Segoe UI', sans-serif; display:block;">
+
+  <defs>
+    <!-- Gray arrowhead -->
+    <marker id="arrow-gray" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto">
+      <path d="M0,0 L0,6 L8,3 z" fill="#64748b"/>
+    </marker>
+    <!-- Red arrowhead -->
+    <marker id="arrow-red" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto">
+      <path d="M0,0 L0,6 L8,3 z" fill="#dc2626"/>
+    </marker>
+    <!-- Blue arrowhead -->
+    <marker id="arrow-blue" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto">
+      <path d="M0,0 L0,6 L8,3 z" fill="#3b82f6"/>
+    </marker>
+    <!-- Down arrowhead red -->
+    <marker id="arrow-down-red" markerWidth="8" markerHeight="8" refX="3" refY="6" orient="auto">
+      <path d="M0,0 L6,0 L3,8 z" fill="#dc2626"/>
+    </marker>
+  </defs>
+
+  <!-- Background -->
+  <rect width="1600" height="920" fill="#f8fafc"/>
+
+  <!-- ==================== TITLE ROW ==================== -->
+  <text x="800" y="38" text-anchor="middle" font-size="24" font-weight="bold" fill="#0f172a">Olist Data Lakehouse Platform</text>
+  <text x="800" y="60" text-anchor="middle" font-size="12" fill="#64748b">Medallion Architecture (Bronze &#x2192; Silver &#x2192; Gold)  &#xB7;  Lambda Pattern  &#xB7;  Apache Iceberg on Cloudflare R2</text>
+
+  <!-- ==================== COLUMN HEADER BACKGROUNDS ==================== -->
+  <!-- Col 1: Data Sources -->
+  <rect x="18" y="65" width="185" height="40" fill="#334155" rx="4"/>
+  <text x="110" y="90" text-anchor="middle" font-size="11" font-weight="bold" fill="white">&#x2460; Data Sources</text>
+
+  <!-- Col 2: Ingestion Layer -->
+  <rect x="228" y="65" width="240" height="40" fill="#1e40af" rx="4"/>
+  <text x="348" y="90" text-anchor="middle" font-size="11" font-weight="bold" fill="white">&#x2461; Ingestion Layer</text>
+
+  <!-- Col 3: Medallion Storage — spans full width 490-950 -->
+  <rect x="490" y="65" width="460" height="40" fill="#78350f" rx="4"/>
+  <text x="720" y="82" text-anchor="middle" font-size="11" font-weight="bold" fill="#fef3c7">&#x2462; Medallion Storage &#x2014; Iceberg on Cloudflare R2</text>
+  <!-- Sub-col headers y=105-145 -->
+  <rect x="495" y="107" width="140" height="36" fill="#92400e"/>
+  <text x="565" y="130" text-anchor="middle" font-size="11" font-weight="bold" fill="#fef3c7">&#x1F949;  Bronze</text>
+  <rect x="643" y="107" width="140" height="36" fill="#475569"/>
+  <text x="713" y="130" text-anchor="middle" font-size="11" font-weight="bold" fill="white">&#x1F948;  Silver</text>
+  <rect x="791" y="107" width="151" height="36" fill="#713f12"/>
+  <text x="866" y="130" text-anchor="middle" font-size="11" font-weight="bold" fill="#fefce8">&#x1F3C6;  Gold</text>
+
+  <!-- Col 4: Processing & Query -->
+  <rect x="972" y="65" width="235" height="40" fill="#3b0764" rx="4"/>
+  <text x="1089" y="90" text-anchor="middle" font-size="11" font-weight="bold" fill="white">&#x2463; Processing &amp; Query</text>
+
+  <!-- Col 5: Serving Layer -->
+  <rect x="1225" y="65" width="340" height="40" fill="#14532d" rx="4"/>
+  <text x="1395" y="90" text-anchor="middle" font-size="11" font-weight="bold" fill="white">&#x2464; Serving Layer</text>
+
+  <!-- ==================== DASHED VERTICAL SEPARATORS ==================== -->
+  <line x1="218" y1="65" x2="218" y2="760" stroke="#cbd5e1" stroke-width="1" stroke-dasharray="5,4"/>
+  <line x1="478" y1="65" x2="478" y2="760" stroke="#cbd5e1" stroke-width="1" stroke-dasharray="5,4"/>
+  <line x1="960" y1="65" x2="960" y2="760" stroke="#cbd5e1" stroke-width="1" stroke-dasharray="5,4"/>
+  <line x1="1215" y1="65" x2="1215" y2="760" stroke="#cbd5e1" stroke-width="1" stroke-dasharray="5,4"/>
+
+  <!-- ==================== COLUMN 1: DATA SOURCES ==================== -->
+
+  <!-- Box A: E-Commerce Dataset y=115 h=260 -->
+  <rect x="20" y="115" width="183" height="260" fill="#f8fafc" stroke="#94a3b8" stroke-width="1" rx="4"/>
+  <!-- Header bar -->
+  <rect x="20" y="115" width="183" height="26" fill="#334155" rx="4"/>
+  <rect x="20" y="130" width="183" height="11" fill="#334155"/>
+  <text x="111" y="132" text-anchor="middle" font-size="10" font-weight="bold" fill="white">&#x1F4CA;  E-Commerce Dataset</text>
+  <!-- Content -->
+  <text x="28" y="152" font-size="9.5" fill="#475569">Kaggle · Brazilian E-Commerce · ~100K orders</text>
+  <text x="28" y="168" font-size="9.5" fill="#475569">&#x1F4C4; olist_orders_dataset (100K rows)</text>
+  <text x="28" y="183" font-size="9.5" fill="#475569">&#x1F4C4; olist_order_items_dataset</text>
+  <text x="28" y="198" font-size="9.5" fill="#475569">&#x1F4C4; olist_order_payments_dataset</text>
+  <text x="28" y="213" font-size="9.5" fill="#475569">&#x1F4C4; olist_order_reviews_dataset</text>
+  <text x="28" y="228" font-size="9.5" fill="#475569">&#x1F4C4; olist_products_dataset</text>
+  <text x="28" y="243" font-size="9.5" fill="#475569">&#x1F4C4; olist_sellers_dataset</text>
+  <text x="28" y="258" font-size="9.5" fill="#475569">&#x1F4C4; olist_customers_dataset</text>
+  <text x="28" y="273" font-size="9.5" fill="#475569">&#x1F4C4; olist_geolocation_dataset</text>
+  <text x="28" y="292" font-size="9" fill="#94a3b8">Join: order_id · seller_id · product_id</text>
+  <text x="28" y="307" font-size="9" fill="#94a3b8">8 CSV files · ~200MB total</text>
+  <text x="28" y="322" font-size="9" fill="#94a3b8">Format: UTF-8 CSV</text>
+
+  <!-- Box B: Marketing Funnel y=390 h=180 -->
+  <rect x="20" y="390" width="183" height="180" fill="#f8fafc" stroke="#94a3b8" stroke-width="1" rx="4"/>
+  <!-- Header bar -->
+  <rect x="20" y="390" width="183" height="26" fill="#334155" rx="4"/>
+  <rect x="20" y="405" width="183" height="11" fill="#334155"/>
+  <text x="111" y="407" text-anchor="middle" font-size="10" font-weight="bold" fill="white">&#x1F4C8;  Marketing Funnel</text>
+  <!-- Content -->
+  <text x="28" y="428" font-size="9.5" fill="#475569">Kaggle · Marketing Funnel Olist</text>
+  <text x="28" y="444" font-size="9.5" fill="#475569">&#x1F4C4; olist_marketing_qualified_leads</text>
+  <text x="28" y="460" font-size="9.5" fill="#475569">&#x1F4C4; olist_closed_deals</text>
+  <text x="28" y="479" font-size="9" fill="#94a3b8">Join: mql_id · seller_id (&#x2192; E-Commerce)</text>
+  <text x="28" y="496" font-size="9.5" font-weight="bold" fill="#1d4ed8">2 CSV files · ~50K leads</text>
+  <text x="28" y="512" font-size="9" fill="#94a3b8">Connects funnel to ecommerce</text>
+  <text x="28" y="528" font-size="9" fill="#94a3b8">via seller_id foreign key</text>
+  <text x="28" y="548" font-size="9" fill="#94a3b8">Tracks lead &#x2192; deal conversion</text>
+
+  <!-- ==================== COLUMN 2: INGESTION ==================== -->
+
+  <!-- BATCH badge -->
+  <rect x="235" y="115" width="48" height="18" fill="#dbeafe" rx="9"/>
+  <text x="259" y="128" text-anchor="middle" font-size="9" font-weight="bold" fill="#1e40af">BATCH</text>
+
+  <!-- Box A: Batch Ingestion y=133 h=195 -->
+  <rect x="230" y="133" width="236" height="195" fill="#eff6ff" stroke="#3b82f6" stroke-width="1" rx="4"/>
+  <!-- Header -->
+  <rect x="230" y="133" width="236" height="26" fill="#2563eb" rx="4"/>
+  <rect x="230" y="148" width="236" height="11" fill="#2563eb"/>
+  <text x="348" y="150" text-anchor="middle" font-size="10" font-weight="bold" fill="white">&#x1F40D;  Batch Ingestion · Python + pandas</text>
+  <!-- Content -->
+  <text x="240" y="172" font-size="9.5" fill="#1e3a5f">1. Read CSV &#x2192; DataFrame</text>
+  <text x="240" y="188" font-size="9.5" fill="#1e3a5f">2. Soda Core quality check</text>
+  <text x="240" y="204" font-size="9.5" fill="#1e3a5f">3. Convert &#x2192; Parquet (PyArrow)</text>
+  <text x="240" y="220" font-size="9.5" fill="#1e3a5f">4. Upload &#x2192; Cloudflare R2</text>
+  <text x="240" y="236" font-size="9.5" fill="#1e3a5f">5. Append &#x2192; Bronze Iceberg (PyIceberg)</text>
+  <text x="240" y="256" font-size="9.5" font-weight="bold" fill="#166534">&#x27F3; Prefect @task(retries=3)</text>
+  <text x="240" y="272" font-size="9" fill="#64748b">ingestion/batch_producer.py</text>
+  <text x="240" y="288" font-size="9" fill="#64748b">ingestion/iceberg_setup.py</text>
+
+  <!-- Box B: Data Quality y=338 h=58 -->
+  <rect x="230" y="338" width="236" height="58" fill="#f0fdf4" stroke="#22c55e" stroke-width="1" rx="4"/>
+  <text x="240" y="358" font-size="9.5" font-weight="bold" fill="#166534">&#x2713;  Soda Core / Great Expectations</text>
+  <text x="240" y="374" font-size="9.5" fill="#475569">schema · nulls · uniqueness · freshness</text>
+  <text x="240" y="389" font-size="9" fill="#64748b">quality/soda_checks.yml</text>
+
+  <!-- STREAMING badge -->
+  <rect x="235" y="408" width="68" height="18" fill="#fee2e2" rx="9"/>
+  <text x="269" y="421" text-anchor="middle" font-size="9" font-weight="bold" fill="#b91c1c">STREAMING</text>
+
+  <!-- Box C: Streaming Producer y=426 h=110 -->
+  <rect x="230" y="426" width="236" height="110" fill="#fff1f2" stroke="#f43f5e" stroke-width="1" rx="4"/>
+  <!-- Header -->
+  <rect x="230" y="426" width="236" height="26" fill="#e11d48" rx="4"/>
+  <rect x="230" y="441" width="236" height="11" fill="#e11d48"/>
+  <text x="348" y="443" text-anchor="middle" font-size="10" font-weight="bold" fill="white">&#x1F40D;  Streaming Producer</text>
+  <!-- Content -->
+  <text x="240" y="464" font-size="9.5" fill="#4c0519">Sort CSV events by timestamp</text>
+  <text x="240" y="480" font-size="9.5" fill="#4c0519">Replay with time compression</text>
+  <text x="240" y="496" font-size="9.5" font-weight="bold" fill="#b91c1c">SPEED_FACTOR = 86,400  (1 day &#x2192; 1 sec)</text>
+  <text x="240" y="512" font-size="9" fill="#64748b">confluent-kafka · Producer</text>
+  <text x="240" y="526" font-size="9" fill="#64748b">ingestion/streaming_producer.py</text>
+
+  <!-- Arrow C→D -->
+  <line x1="348" y1="536" x2="348" y2="548" stroke="#dc2626" stroke-width="1.5" marker-end="url(#arrow-down-red)"/>
+
+  <!-- Box D: Redpanda y=550 h=110 -->
+  <rect x="230" y="550" width="236" height="110" fill="#fff1f2" stroke="#dc2626" stroke-width="1" rx="4"/>
+  <!-- Header -->
+  <rect x="230" y="550" width="236" height="26" fill="#dc2626" rx="4"/>
+  <rect x="230" y="565" width="236" height="11" fill="#dc2626"/>
+  <text x="348" y="567" text-anchor="middle" font-size="10" font-weight="bold" fill="white">&#x1F534;  Redpanda  (Kafka-compatible, no JVM)</text>
+  <!-- Content -->
+  <text x="240" y="588" font-size="9.5" fill="#4c0519">Topics: olist.orders · olist.reviews</text>
+  <text x="240" y="604" font-size="9.5" fill="#4c0519">         olist.payments · olist.leads · olist.deals</text>
+  <text x="240" y="620" font-size="9.5" fill="#4c0519">3 partitions · 1 replica · ~500MB RAM</text>
+  <text x="240" y="636" font-size="9" fill="#64748b">Console UI: http://localhost:8080</text>
+  <text x="240" y="650" font-size="9" fill="#64748b">vectorized/redpanda:latest</text>
+
+  <!-- Arrow D→E -->
+  <line x1="348" y1="660" x2="348" y2="672" stroke="#dc2626" stroke-width="1.5" marker-end="url(#arrow-down-red)"/>
+
+  <!-- Box E: Stream Consumer y=674 h=80 -->
+  <rect x="230" y="674" width="236" height="80" fill="#fff1f2" stroke="#f43f5e" stroke-width="1" rx="4"/>
+  <text x="240" y="693" font-size="9.5" font-weight="bold" fill="#4c0519">&#x27F3;  Stream Consumer  · confluent-kafka</text>
+  <text x="240" y="709" font-size="9.5" fill="#4c0519">Consumer group: iceberg-bronze-writer</text>
+  <text x="240" y="725" font-size="9.5" fill="#4c0519">Batch ACID writes &#x2192; Bronze Iceberg</text>
+  <text x="240" y="741" font-size="9" fill="#64748b">ingestion/stream_consumer.py</text>
+
+  <!-- ==================== COLUMN 3: MEDALLION STORAGE ==================== -->
+
+  <!-- Bronze sub-column box x=495 y=150 w=140 h=520 -->
+  <rect x="495" y="150" width="140" height="520" fill="#fef9c3" stroke="#d97706" stroke-width="1" rx="3"/>
+  <!-- Section title -->
+  <text x="565" y="170" text-anchor="middle" font-size="10" font-weight="bold" fill="#92400e">Raw · Append-Only</text>
+  <line x1="500" y1="176" x2="630" y2="176" stroke="#d97706" stroke-width="0.5" stroke-dasharray="3,3"/>
+  <text x="500" y="191" font-size="9.5" fill="#78350f">&#x1F4E6; PyIceberg writes</text>
+  <text x="500" y="206" font-size="9.5" fill="#78350f">&#x26D4; No update/delete</text>
+  <text x="500" y="221" font-size="9.5" fill="#78350f">&#x2713;  ACID guarantees</text>
+  <text x="500" y="236" font-size="9.5" fill="#78350f">&#x23F0; Time travel (VERSION AS OF)</text>
+  <text x="500" y="251" font-size="9.5" fill="#78350f">&#x1F4F8; Snapshots (.avro)</text>
+  <line x1="500" y1="258" x2="630" y2="258" stroke="#d97706" stroke-width="0.5" stroke-dasharray="3,3"/>
+  <!-- Tables -->
+  <text x="500" y="272" font-size="9" fill="#78350f">&#x2022; ecommerce_orders</text>
+  <text x="500" y="285" font-size="9" fill="#78350f">&#x2022; ecommerce_order_items</text>
+  <text x="500" y="298" font-size="9" fill="#78350f">&#x2022; ecommerce_payments</text>
+  <text x="500" y="311" font-size="9" fill="#78350f">&#x2022; ecommerce_reviews</text>
+  <text x="500" y="324" font-size="9" fill="#78350f">&#x2022; ecommerce_products</text>
+  <text x="500" y="337" font-size="9" fill="#78350f">&#x2022; ecommerce_sellers</text>
+  <text x="500" y="350" font-size="9" fill="#78350f">&#x2022; ecommerce_customers</text>
+  <text x="500" y="363" font-size="9" fill="#78350f">&#x2022; ecommerce_geolocation</text>
+  <text x="500" y="376" font-size="9" fill="#78350f">&#x2022; marketing_leads</text>
+  <text x="500" y="389" font-size="9" fill="#78350f">&#x2022; marketing_deals</text>
+  <line x1="500" y1="396" x2="630" y2="396" stroke="#d97706" stroke-width="0.5" stroke-dasharray="3,3"/>
+  <text x="500" y="410" font-size="9" fill="#78350f">dbt strategy: append</text>
+  <text x="500" y="424" font-size="9" fill="#78350f">+_ingested_at</text>
+  <text x="500" y="438" font-size="9" fill="#78350f">+_source_file</text>
+  <line x1="500" y1="445" x2="630" y2="445" stroke="#d97706" stroke-width="0.5" stroke-dasharray="3,3"/>
+  <text x="500" y="459" font-size="9" fill="#78350f">R2 path:</text>
+  <text x="500" y="472" font-size="9" fill="#78350f">bronze/ecom/{table}/</text>
+  <text x="500" y="485" font-size="9" fill="#78350f">  data/*.parquet</text>
+  <text x="500" y="498" font-size="9" fill="#78350f">  metadata/</text>
+  <text x="500" y="511" font-size="9" fill="#78350f">    snap-*.avro</text>
+  <text x="500" y="524" font-size="9" fill="#78350f">    v*.metadata.json</text>
+  <line x1="500" y1="531" x2="630" y2="531" stroke="#d97706" stroke-width="0.5" stroke-dasharray="3,3"/>
+  <text x="500" y="545" font-size="9" fill="#78350f">Iceberg REST catalog</text>
+  <text x="500" y="558" font-size="9" fill="#78350f">tabulario/iceberg-rest:0.6</text>
+  <text x="500" y="575" font-size="9" fill="#78350f">Concurrent reads: yes</text>
+  <text x="500" y="591" font-size="9" fill="#78350f">Concurrent writes: ACID</text>
+  <text x="500" y="607" font-size="9" fill="#78350f">Immutable snapshots: yes</text>
+  <text x="500" y="623" font-size="9" fill="#78350f">Compaction: planned</text>
+  <text x="500" y="641" font-size="9" fill="#78350f">Schema evolution: yes</text>
+  <text x="500" y="657" font-size="9" fill="#78350f">Hidden partitioning</text>
+
+  <!-- Silver sub-column box x=643 y=150 w=140 h=520 -->
+  <rect x="643" y="150" width="140" height="520" fill="#f1f5f9" stroke="#94a3b8" stroke-width="1" rx="3"/>
+  <text x="713" y="170" text-anchor="middle" font-size="10" font-weight="bold" fill="#334155">Cleaned · Typed</text>
+  <line x1="648" y1="176" x2="778" y2="176" stroke="#94a3b8" stroke-width="0.5" stroke-dasharray="3,3"/>
+  <text x="648" y="191" font-size="9.5" fill="#334155">&#x1F527; dbt incremental</text>
+  <text x="648" y="206" font-size="9.5" fill="#334155">   strategy: merge</text>
+  <text x="648" y="221" font-size="9.5" fill="#334155">   unique_key: id</text>
+  <text x="648" y="236" font-size="9.5" fill="#334155">&#x2699;  Engine: DuckDB</text>
+  <line x1="648" y1="244" x2="778" y2="244" stroke="#94a3b8" stroke-width="0.5" stroke-dasharray="3,3"/>
+  <text x="648" y="258" font-size="9.5" font-weight="bold" fill="#334155">Staging models:</text>
+  <text x="648" y="272" font-size="9" fill="#334155">&#x2022; stg_orders</text>
+  <text x="648" y="285" font-size="9" fill="#334155">&#x2022; stg_sellers</text>
+  <text x="648" y="298" font-size="9" fill="#334155">&#x2022; stg_funnel</text>
+  <line x1="648" y1="305" x2="778" y2="305" stroke="#94a3b8" stroke-width="0.5" stroke-dasharray="3,3"/>
+  <text x="648" y="319" font-size="9.5" font-weight="bold" fill="#334155">Intermediate (ephemeral):</text>
+  <text x="648" y="333" font-size="9" fill="#334155">&#x2022; int_orders_enriched</text>
+  <text x="648" y="347" font-size="9" fill="#334155">&#x2022; int_seller_performance</text>
+  <line x1="648" y1="354" x2="778" y2="354" stroke="#94a3b8" stroke-width="0.5" stroke-dasharray="3,3"/>
+  <text x="648" y="368" font-size="9.5" font-weight="bold" fill="#334155">Transforms:</text>
+  <text x="648" y="382" font-size="9" fill="#334155">&#x2713; Type casting</text>
+  <text x="648" y="396" font-size="9" fill="#334155">&#x2713; Deduplication</text>
+  <text x="648" y="410" font-size="9" fill="#334155">&#x2713; Null handling</text>
+  <text x="648" y="424" font-size="9" fill="#334155">&#x2713; Seller ID join</text>
+  <line x1="648" y1="431" x2="778" y2="431" stroke="#94a3b8" stroke-width="0.5" stroke-dasharray="3,3"/>
+  <text x="648" y="445" font-size="9.5" font-weight="bold" fill="#334155">dbt Tests:</text>
+  <text x="648" y="459" font-size="9" fill="#166534">&#x2713; unique  &#x2713; not_null</text>
+  <text x="648" y="473" font-size="9" fill="#166534">&#x2713; relationships</text>
+  <line x1="648" y1="480" x2="778" y2="480" stroke="#94a3b8" stroke-width="0.5" stroke-dasharray="3,3"/>
+  <text x="648" y="494" font-size="9" fill="#334155">stg_orders.sql</text>
+  <text x="648" y="508" font-size="9" fill="#334155">stg_sellers.sql</text>
+  <text x="648" y="522" font-size="9" fill="#334155">stg_funnel.sql</text>
+  <text x="648" y="536" font-size="9" fill="#334155">schema.yml</text>
+  <line x1="648" y1="543" x2="778" y2="543" stroke="#94a3b8" stroke-width="0.5" stroke-dasharray="3,3"/>
+  <text x="648" y="557" font-size="9" fill="#334155">profiles.yml: duckdb</text>
+  <text x="648" y="571" font-size="9" fill="#334155">dbt_project.yml:</text>
+  <text x="648" y="585" font-size="9" fill="#334155">  +materialized:</text>
+  <text x="648" y="599" font-size="9" fill="#334155">    incremental</text>
+  <text x="648" y="613" font-size="9" fill="#334155">  +file_format: iceberg</text>
+  <text x="648" y="628" font-size="9" fill="#334155">  +unique_key: id</text>
+  <text x="648" y="643" font-size="9" fill="#334155">GitHub CI: dbt test</text>
+  <text x="648" y="658" font-size="9" fill="#334155">on every PR</text>
+
+  <!-- Gold sub-column box x=791 y=150 w=151 h=520 -->
+  <rect x="791" y="150" width="151" height="520" fill="#fefce8" stroke="#eab308" stroke-width="1" rx="3"/>
+  <text x="866" y="170" text-anchor="middle" font-size="10" font-weight="bold" fill="#713f12">Business-Ready</text>
+  <line x1="796" y1="176" x2="937" y2="176" stroke="#eab308" stroke-width="0.5" stroke-dasharray="3,3"/>
+  <text x="796" y="191" font-size="9.5" fill="#713f12">&#x1F527; dbt table (full refresh)</text>
+  <text x="796" y="206" font-size="9.5" fill="#713f12">&#x2699;  Engine: DuckDB / Spark</text>
+  <text x="796" y="221" font-size="9.5" fill="#713f12">Partition: order_date (hidden)</text>
+  <line x1="796" y1="228" x2="937" y2="228" stroke="#eab308" stroke-width="0.5" stroke-dasharray="3,3"/>
+  <text x="796" y="242" font-size="9.5" font-weight="bold" fill="#713f12">Fact tables:</text>
+  <text x="796" y="256" font-size="9" fill="#713f12">&#x2022; fct_orders</text>
+  <text x="796" y="269" font-size="9" fill="#713f12">&#x2022; fct_funnel</text>
+  <line x1="796" y1="276" x2="937" y2="276" stroke="#eab308" stroke-width="0.5" stroke-dasharray="3,3"/>
+  <text x="796" y="290" font-size="9.5" font-weight="bold" fill="#713f12">Dimensions:</text>
+  <text x="796" y="304" font-size="9" fill="#713f12">&#x2022; dim_sellers</text>
+  <text x="796" y="318" font-size="9" fill="#713f12">&#x2022; dim_customers (SCD Type 2)</text>
+  <line x1="796" y1="325" x2="937" y2="325" stroke="#eab308" stroke-width="0.5" stroke-dasharray="3,3"/>
+  <text x="796" y="339" font-size="9.5" font-weight="bold" fill="#713f12">Metrics:</text>
+  <text x="796" y="353" font-size="9" fill="#713f12">&#x2022; revenue_by_month</text>
+  <text x="796" y="366" font-size="9" fill="#713f12">&#x2022; delivery_sla_compliance</text>
+  <text x="796" y="379" font-size="9" fill="#713f12">&#x2022; conversion_rate</text>
+  <line x1="796" y1="386" x2="937" y2="386" stroke="#eab308" stroke-width="0.5" stroke-dasharray="3,3"/>
+  <text x="796" y="400" font-size="9.5" font-weight="bold" fill="#713f12">Partition sample:</text>
+  <text x="796" y="414" font-size="9" fill="#713f12">fct_orders/</text>
+  <text x="796" y="428" font-size="9" fill="#713f12">  order_date=2017-01/</text>
+  <text x="796" y="442" font-size="9" fill="#713f12">  order_date=2017-02/</text>
+  <line x1="796" y1="449" x2="937" y2="449" stroke="#eab308" stroke-width="0.5" stroke-dasharray="3,3"/>
+  <text x="796" y="463" font-size="9" fill="#713f12">fct_orders.sql</text>
+  <text x="796" y="477" font-size="9" fill="#713f12">fct_funnel.sql</text>
+  <text x="796" y="491" font-size="9" fill="#713f12">dim_sellers.sql</text>
+  <text x="796" y="505" font-size="9" fill="#713f12">revenue_by_month.sql</text>
+  <line x1="796" y1="512" x2="937" y2="512" stroke="#eab308" stroke-width="0.5" stroke-dasharray="3,3"/>
+  <text x="796" y="526" font-size="9" fill="#713f12">+materialized: table</text>
+  <text x="796" y="540" font-size="9" fill="#713f12">+file_format: iceberg</text>
+  <text x="796" y="554" font-size="9" fill="#713f12">+partition_by:</text>
+  <text x="796" y="568" font-size="9" fill="#713f12">  ['order_date']</text>
+  <line x1="796" y1="575" x2="937" y2="575" stroke="#eab308" stroke-width="0.5" stroke-dasharray="3,3"/>
+  <text x="796" y="589" font-size="9" fill="#713f12">Trino-queryable via</text>
+  <text x="796" y="603" font-size="9" fill="#713f12">iceberg.gold.fct_orders</text>
+  <text x="796" y="617" font-size="9" fill="#713f12">Query federation:</text>
+  <text x="796" y="631" font-size="9" fill="#713f12">JOIN with postgres</text>
+  <text x="796" y="648" font-size="9" fill="#713f12">BI-ready aggregates</text>
+  <text x="796" y="662" font-size="9" fill="#713f12">pre-joined for speed</text>
+
+  <!-- Bronze→Silver small arrow -->
+  <line x1="635" y1="415" x2="643" y2="415" stroke="#94a3b8" stroke-width="1" marker-end="url(#arrow-gray)"/>
+
+  <!-- Silver→Gold small arrow -->
+  <line x1="783" y1="415" x2="791" y2="415" stroke="#94a3b8" stroke-width="1" marker-end="url(#arrow-gray)"/>
+
+  <!-- Cloudflare R2 storage bar x=495 y=678 w=447 h=52 -->
+  <rect x="495" y="678" width="447" height="52" fill="#e0f2fe" stroke="#0284c7" stroke-width="1" rx="4"/>
+  <text x="718" y="697" text-anchor="middle" font-size="10" font-weight="bold" fill="#0c4a6e">&#x2601;  Cloudflare R2  (S3-compatible · Free egress · Bucket: olist-lakehouse)</text>
+  <text x="718" y="714" text-anchor="middle" font-size="9.5" fill="#0369a1">Apache Iceberg  &#x2014;  ACID · Time Travel · Schema Evolution · Hidden Partitioning</text>
+  <text x="718" y="727" text-anchor="middle" font-size="9" fill="#0369a1">r2://olist-lakehouse/bronze/  ·  r2://olist-lakehouse/silver/  ·  r2://olist-lakehouse/gold/</text>
+
+  <!-- ==================== COLUMN 4: PROCESSING & QUERY ==================== -->
+
+  <!-- Box A: DuckDB y=115 h=175 -->
+  <rect x="974" y="115" width="231" height="175" fill="#fefce8" stroke="#ca8a04" stroke-width="1" rx="4"/>
+  <!-- Header -->
+  <rect x="974" y="115" width="231" height="26" fill="#ca8a04" rx="4"/>
+  <rect x="974" y="130" width="231" height="11" fill="#ca8a04"/>
+  <text x="1089" y="132" text-anchor="middle" font-size="10" font-weight="bold" fill="white">&#x1F986;  DuckDB</text>
+  <!-- Content -->
+  <text x="982" y="153" font-size="9.5" fill="#713f12">Embedded · No server · In-process</text>
+  <text x="982" y="169" font-size="9.5" fill="#713f12">Workloads: small/medium  &lt; 1TB</text>
+  <text x="982" y="185" font-size="9.5" fill="#713f12">Reads Iceberg via REST catalog</text>
+  <text x="982" y="201" font-size="9.5" fill="#713f12">dbt-duckdb adapter (default engine)</text>
+  <text x="982" y="217" font-size="9" fill="#64748b">Fast iteration · zero config</text>
+  <text x="982" y="233" font-size="9" fill="#64748b">duckdb==0.10  · dbt-duckdb==1.7</text>
+  <text x="982" y="249" font-size="9" fill="#64748b">No Docker container needed</text>
+  <text x="982" y="265" font-size="9" fill="#64748b">Embedded in Python runtime</text>
+
+  <!-- Box B: Apache Spark y=302 h=185 -->
+  <rect x="974" y="302" width="231" height="185" fill="#fff7ed" stroke="#f97316" stroke-width="1" rx="4"/>
+  <!-- Header -->
+  <rect x="974" y="302" width="231" height="26" fill="#ea580c" rx="4"/>
+  <rect x="974" y="317" width="231" height="11" fill="#ea580c"/>
+  <text x="1089" y="319" text-anchor="middle" font-size="10" font-weight="bold" fill="white">&#x26A1;  Apache Spark 3.5</text>
+  <!-- Content -->
+  <text x="982" y="341" font-size="9.5" fill="#7c2d12">Distributed processing</text>
+  <text x="982" y="357" font-size="9.5" fill="#7c2d12">Workloads: large scale  &gt; 1TB</text>
+  <text x="982" y="373" font-size="9.5" fill="#7c2d12">PySpark + Iceberg connector</text>
+  <text x="982" y="389" font-size="9.5" fill="#7c2d12">bitnami/spark:3.5  · 1 master + N workers</text>
+  <text x="982" y="405" font-size="9" fill="#64748b">Same Iceberg tables as DuckDB</text>
+  <text x="982" y="421" font-size="9" fill="#64748b">&#x2014;swap engine when data grows</text>
+  <text x="982" y="438" font-size="9" fill="#64748b">spark-master:7077 · UI: :8081</text>
+  <text x="982" y="454" font-size="9" fill="#64748b">spark/jobs/silver_transform.py</text>
+  <text x="982" y="470" font-size="9" fill="#64748b">Iceberg spark extensions loaded</text>
+
+  <!-- Box C: Trino y=499 h=175 -->
+  <rect x="974" y="499" width="231" height="175" fill="#f5f3ff" stroke="#7c3aed" stroke-width="1" rx="4"/>
+  <!-- Header -->
+  <rect x="974" y="499" width="231" height="26" fill="#6d28d9" rx="4"/>
+  <rect x="974" y="514" width="231" height="11" fill="#6d28d9"/>
+  <text x="1089" y="516" text-anchor="middle" font-size="10" font-weight="bold" fill="white">&#x1F53A;  Trino 435  &#x2014; Query Federation</text>
+  <!-- Content -->
+  <text x="982" y="537" font-size="9.5" fill="#3b0764">Catalogs: iceberg · postgres</text>
+  <text x="982" y="553" font-size="9.5" fill="#3b0764">Join Iceberg + Postgres in one query</text>
+  <text x="982" y="569" font-size="9.5" fill="#3b0764">Ad-hoc analytics across silos</text>
+  <text x="982" y="585" font-size="9.5" fill="#3b0764">Query pushdown optimization</text>
+  <text x="982" y="601" font-size="9" fill="#64748b">trinodb/trino:435 · UI: :8082</text>
+  <text x="982" y="617" font-size="9" fill="#64748b">trino/catalog/iceberg.properties</text>
+  <text x="982" y="633" font-size="9" fill="#64748b">trino/catalog/postgres.properties</text>
+  <text x="982" y="649" font-size="9" fill="#64748b">SELECT * FROM iceberg.gold.fct_orders</text>
+  <text x="982" y="665" font-size="9" fill="#64748b">JOIN postgres.public.campaigns ...</text>
+
+  <!-- ==================== COLUMN 5: SERVING LAYER ==================== -->
+
+  <!-- Box A: Agentic BI y=115 h=195 -->
+  <rect x="1227" y="115" width="336" height="195" fill="#f0fdf4" stroke="#22c55e" stroke-width="1" rx="4"/>
+  <!-- Header -->
+  <rect x="1227" y="115" width="336" height="26" fill="#15803d" rx="4"/>
+  <rect x="1227" y="130" width="336" height="11" fill="#15803d"/>
+  <text x="1395" y="132" text-anchor="middle" font-size="10" font-weight="bold" fill="white">&#x1F4AC;  Agentic BI  &#x2014; Streamlit + Claude API</text>
+  <!-- Content -->
+  <text x="1237" y="153" font-size="9.5" fill="#14532d">Natural Language  &#x2192;  SQL  &#x2192;  Charts</text>
+  <text x="1237" y="169" font-size="9.5" font-style="italic" fill="#64748b">"Show me top sellers this month"</text>
+  <text x="1237" y="185" font-size="9.5" fill="#14532d">  &#x2193; Claude API generates SQL</text>
+  <text x="1237" y="201" font-size="9.5" fill="#14532d">  &#x2193; DuckDB/Trino executes on Gold</text>
+  <text x="1237" y="217" font-size="9.5" fill="#14532d">  &#x2193; Plotly renders interactive chart</text>
+  <text x="1237" y="237" font-size="9.5" font-weight="bold" fill="#166534">claude-sonnet-4-6  ·  ANTHROPIC_API_KEY</text>
+  <text x="1237" y="254" font-size="9" fill="#64748b">http://localhost:8501  · --profile bi</text>
+  <text x="1237" y="270" font-size="9" fill="#64748b">bi/agentic_bi.py</text>
+  <text x="1237" y="286" font-size="9" fill="#64748b">streamlit · plotly · anthropic</text>
+  <text x="1237" y="302" font-size="9" fill="#64748b">anthropic SDK · prompt caching</text>
+
+  <!-- Box B: Historical BI y=322 h=155 -->
+  <rect x="1227" y="322" width="336" height="155" fill="#f0f9ff" stroke="#0ea5e9" stroke-width="1" rx="4"/>
+  <!-- Header -->
+  <rect x="1227" y="322" width="336" height="26" fill="#0369a1" rx="4"/>
+  <rect x="1227" y="337" width="336" height="11" fill="#0369a1"/>
+  <text x="1395" y="339" text-anchor="middle" font-size="10" font-weight="bold" fill="white">&#x1F4CA;  Historical BI &#x2014; Evidence / Metabase</text>
+  <!-- Content -->
+  <text x="1237" y="360" font-size="9.5" fill="#0c4a6e">BI-as-code with Evidence.dev</text>
+  <text x="1237" y="376" font-size="9.5" fill="#0c4a6e">Metabase open-source dashboards</text>
+  <text x="1237" y="392" font-size="9.5" fill="#0c4a6e">Revenue trends · Seller performance</text>
+  <text x="1237" y="408" font-size="9.5" fill="#0c4a6e">Delivery SLA · Funnel conversion rate</text>
+  <text x="1237" y="428" font-size="9.5" font-weight="bold" fill="#0369a1">Queries Gold layer via DuckDB / Trino</text>
+  <text x="1237" y="445" font-size="9" fill="#64748b">Evidence: Markdown + SQL reports</text>
+  <text x="1237" y="461" font-size="9" fill="#64748b">Metabase UI: http://localhost:3000</text>
+  <text x="1237" y="477" font-size="9" fill="#64748b">bi/evidence/ · bi/metabase/</text>
+
+  <!-- Box C: Real-time Dashboard y=489 h=180 -->
+  <rect x="1227" y="489" width="336" height="180" fill="#fdf4ff" stroke="#a855f7" stroke-width="1" rx="4"/>
+  <!-- Header -->
+  <rect x="1227" y="489" width="336" height="26" fill="#7e22ce" rx="4"/>
+  <rect x="1227" y="504" width="336" height="11" fill="#7e22ce"/>
+  <text x="1395" y="506" text-anchor="middle" font-size="10" font-weight="bold" fill="white">&#x1F534;  Real-Time Dashboard</text>
+  <!-- Content -->
+  <text x="1237" y="527" font-size="9.5" fill="#3b0764">Live order stream from Redpanda</text>
+  <text x="1237" y="543" font-size="9.5" fill="#3b0764">SLA alerts on delivery delays</text>
+  <text x="1237" y="559" font-size="9.5" fill="#3b0764">ML predictions overlay</text>
+  <text x="1237" y="575" font-size="9.5" fill="#3b0764">Reads Bronze/Silver latest data</text>
+  <text x="1237" y="591" font-size="9.5" fill="#3b0764">Streamlit + auto-refresh</text>
+  <text x="1237" y="611" font-size="9.5" font-weight="bold" fill="#6b21a8">MLflow REST API for predictions</text>
+  <text x="1237" y="628" font-size="9" fill="#64748b">http://localhost:5000 (MLflow)</text>
+  <text x="1237" y="645" font-size="9" fill="#64748b">bi/realtime_dashboard.py</text>
+  <text x="1237" y="661" font-size="9" fill="#64748b">Kafka consumer + Iceberg reads</text>
+
+  <!-- ==================== MAIN FLOW ARROWS ==================== -->
+
+  <!-- 1. Col1→Col2 batch y=245 -->
+  <line x1="203" y1="245" x2="228" y2="245" stroke="#64748b" stroke-width="2" marker-end="url(#arrow-gray)"/>
+  <text x="212" y="239" text-anchor="middle" font-size="8" fill="#64748b">batch</text>
+
+  <!-- 2. Col1→Col2 stream y=480 red -->
+  <line x1="203" y1="480" x2="228" y2="480" stroke="#dc2626" stroke-width="2" marker-end="url(#arrow-red)"/>
+  <text x="212" y="474" text-anchor="middle" font-size="8" fill="#dc2626">stream</text>
+
+  <!-- 3. Col2→Bronze batch y=235 blue -->
+  <line x1="466" y1="235" x2="493" y2="235" stroke="#3b82f6" stroke-width="2" marker-end="url(#arrow-blue)"/>
+
+  <!-- 4. Col2→Bronze stream y=710 red -->
+  <line x1="466" y1="710" x2="493" y2="710" stroke="#dc2626" stroke-width="2" marker-end="url(#arrow-red)"/>
+
+  <!-- 5. Gold→Col4 y=440 gray with label -->
+  <line x1="942" y1="440" x2="972" y2="440" stroke="#64748b" stroke-width="2" marker-end="url(#arrow-gray)"/>
+  <text x="955" y="434" text-anchor="middle" font-size="8" fill="#64748b">query</text>
+
+  <!-- 6. Col4→Col5 y=440 gray -->
+  <line x1="1205" y1="440" x2="1225" y2="440" stroke="#64748b" stroke-width="2" marker-end="url(#arrow-gray)"/>
+
+  <!-- ==================== BOTTOM STRIP ==================== -->
+
+  <!-- Box 1: Prefect x=15 -->
+  <rect x="15" y="770" width="375" height="95" fill="#ecfeff" stroke="#06b6d4" stroke-width="1" rx="4"/>
+  <rect x="15" y="770" width="375" height="26" fill="#0891b2" rx="4"/>
+  <rect x="15" y="785" width="375" height="11" fill="#0891b2"/>
+  <text x="202" y="787" text-anchor="middle" font-size="10" font-weight="bold" fill="white">&#x1F504;  Prefect &#x2014; Workflow Orchestration</text>
+  <text x="25" y="808" font-size="9.5" fill="#164e63">@flow(name='full-pipeline')  @task(retries=3)</text>
+  <text x="25" y="823" font-size="9.5" fill="#164e63">Bronze Ingestion &#x2192; Silver dbt &#x2192; Gold dbt</text>
+  <text x="25" y="838" font-size="9.5" fill="#164e63">Prefect Cloud UI · http://localhost:4200</text>
+  <text x="25" y="855" font-size="9.5" font-weight="bold" fill="#0891b2">Sensors · Schedules · Artifacts · Retries</text>
+
+  <!-- Box 2: MLflow x=400 -->
+  <rect x="400" y="770" width="375" height="95" fill="#fdf4ff" stroke="#a855f7" stroke-width="1" rx="4"/>
+  <rect x="400" y="770" width="375" height="26" fill="#7e22ce" rx="4"/>
+  <rect x="400" y="785" width="375" height="11" fill="#7e22ce"/>
+  <text x="587" y="787" text-anchor="middle" font-size="10" font-weight="bold" fill="white">&#x1F9EA;  MLflow &#x2014; ML Lifecycle</text>
+  <text x="410" y="808" font-size="9.5" fill="#3b0764">Experiment Tracking · Model Registry</text>
+  <text x="410" y="823" font-size="9.5" fill="#3b0764">Models: delivery-delay · churn · lead-score</text>
+  <text x="410" y="838" font-size="9.5" fill="#3b0764">RandomForest / XGBoost · R&#xB2; &gt; 0.7</text>
+  <text x="410" y="855" font-size="9.5" font-weight="bold" fill="#7e22ce">REST serving · http://localhost:5000</text>
+
+  <!-- Box 3: Docker Compose x=785 -->
+  <rect x="785" y="770" width="375" height="95" fill="#eff6ff" stroke="#3b82f6" stroke-width="1" rx="4"/>
+  <rect x="785" y="770" width="375" height="26" fill="#1d4ed8" rx="4"/>
+  <rect x="785" y="785" width="375" height="11" fill="#1d4ed8"/>
+  <text x="972" y="787" text-anchor="middle" font-size="10" font-weight="bold" fill="white">&#x1F433;  Docker Compose &#x2014; Infrastructure</text>
+  <text x="795" y="808" font-size="9.5" fill="#1e3a5f">All services containerized · One command</text>
+  <text x="795" y="823" font-size="9.5" fill="#1e3a5f">Profiles: core  |  spark  |  query  |  bi</text>
+  <text x="795" y="838" font-size="9" fill="#64748b">postgres · iceberg-rest · redpanda · mlflow</text>
+  <text x="795" y="855" font-size="9" font-weight="bold" fill="#1d4ed8">docker compose --profile spark --profile query up -d</text>
+
+  <!-- Box 4: GitHub Actions x=1170 -->
+  <rect x="1170" y="770" width="375" height="95" fill="#f9fafb" stroke="#374151" stroke-width="1" rx="4"/>
+  <rect x="1170" y="770" width="375" height="26" fill="#1f2937" rx="4"/>
+  <rect x="1170" y="785" width="375" height="11" fill="#1f2937"/>
+  <text x="1357" y="787" text-anchor="middle" font-size="10" font-weight="bold" fill="white">&#x2699;&#xFE0F;  GitHub Actions &#x2014; CI/CD</text>
+  <text x="1180" y="808" font-size="9.5" fill="#1f2937">dbt test on every Pull Request</text>
+  <text x="1180" y="823" font-size="9.5" fill="#1f2937">SQL linting with SQLFluff</text>
+  <text x="1180" y="838" font-size="9.5" fill="#1f2937">Auto-deploy flows to Prefect Cloud</text>
+  <text x="1180" y="855" font-size="9.5" font-weight="bold" fill="#1f2937">.github/workflows/dbt_test.yml</text>
+
+  <!-- ==================== FOOTER ==================== -->
+  <text x="800" y="892" text-anchor="middle" font-size="10" fill="#94a3b8">
+    Olist Data Lakehouse Platform  ·  HK3  ·  Tai Pham  ·  2026  ·  Stack: Iceberg · dbt · Redpanda · Spark · Trino · Prefect · MLflow
+  </text>
+
+</svg>
+</div>
+</body>
+</html>

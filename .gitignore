@@ -1,0 +1,27 @@
+# Credentials — never commit
+.env
+
+# Dataset CSVs (download from Kaggle separately)
+data/*.csv
+data/*.zip
+
+# Spark JARs (download via spark/jars/README.md)
+spark/jars/*.jar
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+*.egg-info/
+
+# dbt
+dbt/target/
+dbt/logs/
+dbt/.user.yml
+
+# MLflow
+mlruns/
+
+# OS
+.DS_Store
+Thumbs.db

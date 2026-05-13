@@ -1,0 +1,392 @@
+# ============================================================
+# Olist Data Lakehouse Platform – Docker Compose
+# ============================================================
+# Quick start:
+#   cp .env.example .env       # fill in R2 credentials
+#   docker compose up -d       # core stack (streaming + lakehouse + orchestration + ml)
+#
+# Optional profiles:
+#   --profile spark            Spark cluster (distributed processing)
+#   --profile query            Trino (query federation)
+#   --profile bi               Streamlit BI app
+#
+# Full stack:
+#   docker compose --profile spark --profile query --profile bi up -d
+#
+# Storage: Cloudflare R2 – set S3_ENDPOINT / S3_ACCESS_KEY / S3_SECRET_KEY in .env
+# Bucket "olist-lakehouse" must be pre-created in the Cloudflare dashboard.
+# ============================================================
+
+name: olist-lakehouse
+
+networks:
+  lakehouse:
+    driver: bridge
+
+volumes:
+  postgres_data:
+  redpanda_data:
+  prefect_home:
+  spark_logs:
+
+x-spark-env: &spark-env
+  AWS_ACCESS_KEY_ID: ${S3_ACCESS_KEY}
+  AWS_SECRET_ACCESS_KEY: ${S3_SECRET_KEY}
+
+services:
+
+  # ──────────────────────────────────────────────────────────
+  # INFRASTRUCTURE – PostgreSQL
+  # Backs: Iceberg catalog · Prefect metadata · MLflow tracking
+  # ──────────────────────────────────────────────────────────
+
+  postgres:
+    image: postgres:15-alpine
+    container_name: olist-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: olist
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-olistpass}
+      POSTGRES_DB: postgres
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./infra/postgres/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U olist"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    networks:
+      - lakehouse
+
+  # ──────────────────────────────────────────────────────────
+  # ICEBERG REST CATALOG
+  # Backend: PostgreSQL JDBC  |  Storage: Cloudflare R2
+  # API: http://localhost:8181
+  # ──────────────────────────────────────────────────────────
+
+  iceberg-rest:
+    image: tabulario/iceberg-rest:0.10.0
+    container_name: olist-iceberg-rest
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      CATALOG_CATALOG__IMPL: org.apache.iceberg.jdbc.JdbcCatalog
+      CATALOG_URI: jdbc:postgresql://postgres:5432/iceberg
+      CATALOG_JDBC_USER: olist
+      CATALOG_JDBC_PASSWORD: ${POSTGRES_PASSWORD:-olistpass}
+      CATALOG_JDBC_INITIALIZE__SCHEMA: "true"
+      CATALOG_WAREHOUSE: s3://olist-lakehouse
+      CATALOG_IO__IMPL: org.apache.iceberg.aws.s3.S3FileIO
+      CATALOG_S3_ENDPOINT: ${S3_ENDPOINT}
+      CATALOG_S3_PATH__STYLE__ACCESS: ${S3_PATH_STYLE:-false}
+      AWS_ACCESS_KEY_ID: ${S3_ACCESS_KEY}
+      AWS_SECRET_ACCESS_KEY: ${S3_SECRET_KEY}
+      AWS_REGION: ${S3_REGION:-auto}
+    ports:
+      - "8181:8181"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8181/v1/config"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 20s
+    networks:
+      - lakehouse
+
+  # ──────────────────────────────────────────────────────────
+  # STREAMING – REDPANDA
+  # Kafka-compatible broker (no JVM/Zookeeper)
+  # External Kafka addr: localhost:19092
+  # Internal Kafka addr: redpanda:9092
+  # Console UI:          http://localhost:8080
+  # ──────────────────────────────────────────────────────────
+
+  redpanda:
+    image: docker.redpanda.com/redpandadata/redpanda:v23.3.18
+    container_name: olist-redpanda
+    restart: unless-stopped
+    command:
+      - redpanda
+      - start
+      - --kafka-addr internal://0.0.0.0:9092,external://0.0.0.0:19092
+      - --advertise-kafka-addr internal://redpanda:9092,external://localhost:19092
+      - --pandaproxy-addr internal://0.0.0.0:8082,external://0.0.0.0:18082
+      - --advertise-pandaproxy-addr internal://redpanda:8082,external://localhost:18082
+      - --schema-registry-addr internal://0.0.0.0:8081,external://0.0.0.0:18081
+      - --rpc-addr redpanda:33145
+      - --advertise-rpc-addr redpanda:33145
+      - --mode dev-container
+      - --smp 1
+      - --memory 512M
+      - --default-log-level=warn
+    volumes:
+      - redpanda_data:/var/lib/redpanda/data
+    ports:
+      - "18081:18081"   # Schema Registry (host)
+      - "18082:18082"   # HTTP Proxy (host)
+      - "19092:19092"   # Kafka API (host)
+    healthcheck:
+      test: ["CMD-SHELL", "rpk cluster health | grep -E 'Healthy|healthy' || exit 1"]
+      interval: 15s
+      timeout: 10s
+      retries: 5
+      start_period: 30s
+    networks:
+      - lakehouse
+
+  redpanda-console:
+    image: docker.redpanda.com/redpandadata/console:v2.4.6
+    container_name: olist-redpanda-console
+    restart: unless-stopped
+    depends_on:
+      redpanda:
+        condition: service_healthy
+    environment:
+      KAFKA_BROKERS: redpanda:9092
+      KAFKA_SCHEMAREGISTRY_ENABLED: "true"
+      KAFKA_SCHEMAREGISTRY_URLS: http://redpanda:8081
+    ports:
+      - "8080:8080"   # Redpanda Console  →  http://localhost:8080
+    networks:
+      - lakehouse
+
+  redpanda-init:
+    image: docker.redpanda.com/redpandadata/redpanda:v23.3.18
+    container_name: olist-redpanda-init
+    restart: "no"
+    depends_on:
+      redpanda:
+        condition: service_healthy
+    entrypoint: |
+      /bin/bash -c "
+        rpk -X brokers=redpanda:9092 topic create olist.orders   --partitions 3 --replicas 1 --if-not-exists &&
+        rpk -X brokers=redpanda:9092 topic create olist.reviews  --partitions 3 --replicas 1 --if-not-exists &&
+        rpk -X brokers=redpanda:9092 topic create olist.payments --partitions 3 --replicas 1 --if-not-exists &&
+        rpk -X brokers=redpanda:9092 topic create olist.leads    --partitions 2 --replicas 1 --if-not-exists &&
+        rpk -X brokers=redpanda:9092 topic create olist.deals    --partitions 2 --replicas 1 --if-not-exists &&
+        echo '=== Redpanda topics ready ===' &&
+        rpk -X brokers=redpanda:9092 topic list
+      "
+    networks:
+      - lakehouse
+
+  # ──────────────────────────────────────────────────────────
+  # DISTRIBUTED PROCESSING – APACHE SPARK
+  # Profile: --profile spark
+  # Master UI:  http://localhost:8090
+  # Worker UI:  http://localhost:8091
+  # ──────────────────────────────────────────────────────────
+
+  spark-master:
+    image: bitnami/spark:3.5
+    container_name: olist-spark-master
+    restart: unless-stopped
+    profiles: ["spark"]
+    environment:
+      <<: *spark-env
+      SPARK_MODE: master
+      SPARK_MASTER_HOST: spark-master
+      SPARK_MASTER_PORT_NUMBER: 7077
+      SPARK_MASTER_WEBUI_PORT_NUMBER: 8090
+    volumes:
+      - ./spark/jobs:/opt/bitnami/spark/jobs:ro
+      - ./spark/conf/spark-defaults.conf:/opt/bitnami/spark/conf/spark-defaults.conf:ro
+      - ./spark/jars:/opt/bitnami/spark/jars:ro
+      - spark_logs:/opt/bitnami/spark/logs
+    ports:
+      - "7077:7077"   # Spark master RPC
+      - "8090:8090"   # Spark master UI  →  http://localhost:8090
+    networks:
+      - lakehouse
+
+  spark-worker:
+    image: bitnami/spark:3.5
+    container_name: olist-spark-worker
+    restart: unless-stopped
+    profiles: ["spark"]
+    depends_on:
+      - spark-master
+    environment:
+      <<: *spark-env
+      SPARK_MODE: worker
+      SPARK_MASTER_URL: spark://spark-master:7077
+      SPARK_WORKER_CORES: ${SPARK_WORKER_CORES:-2}
+      SPARK_WORKER_MEMORY: ${SPARK_WORKER_MEMORY:-2G}
+    volumes:
+      - ./spark/jobs:/opt/bitnami/spark/jobs:ro
+      - ./spark/conf/spark-defaults.conf:/opt/bitnami/spark/conf/spark-defaults.conf:ro
+      - ./spark/jars:/opt/bitnami/spark/jars:ro
+      - spark_logs:/opt/bitnami/spark/logs
+    ports:
+      - "8091:8081"   # Spark worker UI  →  http://localhost:8091
+    networks:
+      - lakehouse
+
+  # ──────────────────────────────────────────────────────────
+  # QUERY FEDERATION – TRINO
+  # Profile: --profile query
+  # UI + REST: http://localhost:8082
+  # Catalogs: iceberg (Bronze/Silver/Gold) · postgres (external)
+  # ──────────────────────────────────────────────────────────
+
+  trino:
+    image: trinodb/trino:435
+    container_name: olist-trino
+    restart: unless-stopped
+    profiles: ["query"]
+    depends_on:
+      iceberg-rest:
+        condition: service_healthy
+    environment:
+      S3_ENDPOINT: ${S3_ENDPOINT}
+      S3_ACCESS_KEY: ${S3_ACCESS_KEY}
+      S3_SECRET_KEY: ${S3_SECRET_KEY}
+      S3_REGION: ${S3_REGION:-auto}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-olistpass}
+    volumes:
+      - ./trino/catalog:/etc/trino/catalog:ro
+      - ./trino/config.properties:/etc/trino/config.properties:ro
+      - ./trino/jvm.config:/etc/trino/jvm.config:ro
+    ports:
+      - "8082:8080"   # Trino UI  →  http://localhost:8082
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/v1/info"]
+      interval: 15s
+      timeout: 10s
+      retries: 5
+      start_period: 40s
+    networks:
+      - lakehouse
+
+  # ──────────────────────────────────────────────────────────
+  # ORCHESTRATION – PREFECT
+  # Server UI:  http://localhost:4200
+  # Worker runs flows from ./prefect/flows/
+  # Note: prefect-worker uses a custom image (see prefect/Dockerfile)
+  # ──────────────────────────────────────────────────────────
+
+  prefect-server:
+    image: prefecthq/prefect:3-latest
+    container_name: olist-prefect-server
+    restart: unless-stopped
+    command: prefect server start
+    environment:
+      PREFECT_SERVER_API_HOST: 0.0.0.0
+      PREFECT_API_DATABASE_CONNECTION_URL: postgresql+asyncpg://olist:${POSTGRES_PASSWORD:-olistpass}@postgres:5432/prefect
+    depends_on:
+      postgres:
+        condition: service_healthy
+    ports:
+      - "4200:4200"   # Prefect UI  →  http://localhost:4200
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:4200/api/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+    networks:
+      - lakehouse
+
+  prefect-worker:
+    build:
+      context: .
+      dockerfile: prefect/Dockerfile
+    container_name: olist-prefect-worker
+    restart: unless-stopped
+    command: prefect worker start --pool default-process-pool
+    environment:
+      PREFECT_API_URL: http://prefect-server:4200/api
+      PREFECT_HOME: /prefect
+      S3_ENDPOINT: ${S3_ENDPOINT}
+      S3_ACCESS_KEY: ${S3_ACCESS_KEY}
+      S3_SECRET_KEY: ${S3_SECRET_KEY}
+      S3_REGION: ${S3_REGION:-auto}
+      ICEBERG_REST_URI: http://iceberg-rest:8181
+      MLFLOW_TRACKING_URI: http://mlflow:5000
+    depends_on:
+      prefect-server:
+        condition: service_healthy
+      iceberg-rest:
+        condition: service_healthy
+    volumes:
+      - ./ingestion:/app/ingestion:ro
+      - ./dbt:/app/dbt:ro
+      - ./prefect/flows:/app/flows:ro
+      - ./data:/app/data:ro
+      - prefect_home:/prefect
+    working_dir: /app
+    networks:
+      - lakehouse
+
+  # ──────────────────────────────────────────────────────────
+  # ML LIFECYCLE – MLFLOW
+  # UI + REST: http://localhost:5000
+  # Artifacts stored in s3://olist-lakehouse/mlflow
+  # ──────────────────────────────────────────────────────────
+
+  mlflow:
+    image: ghcr.io/mlflow/mlflow:v2.13.0
+    container_name: olist-mlflow
+    restart: unless-stopped
+    command: >
+      mlflow server
+        --backend-store-uri postgresql://olist:${POSTGRES_PASSWORD:-olistpass}@postgres:5432/mlflow
+        --default-artifact-root s3://olist-lakehouse/mlflow
+        --host 0.0.0.0
+        --port 5000
+        --serve-artifacts
+    environment:
+      MLFLOW_S3_ENDPOINT_URL: ${S3_ENDPOINT}
+      AWS_ACCESS_KEY_ID: ${S3_ACCESS_KEY}
+      AWS_SECRET_ACCESS_KEY: ${S3_SECRET_KEY}
+      AWS_DEFAULT_REGION: ${S3_REGION:-auto}
+    depends_on:
+      postgres:
+        condition: service_healthy
+    ports:
+      - "5000:5000"   # MLflow UI  →  http://localhost:5000
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:5000/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+    networks:
+      - lakehouse
+
+  # ──────────────────────────────────────────────────────────
+  # BI – STREAMLIT (Agentic BI + real-time dashboard)
+  # Profile: --profile bi
+  # App: http://localhost:8501
+  # ──────────────────────────────────────────────────────────
+
+  streamlit:
+    build:
+      context: ./bi
+      dockerfile: Dockerfile
+    container_name: olist-streamlit
+    restart: unless-stopped
+    profiles: ["bi"]
+    environment:
+      MLFLOW_TRACKING_URI: http://mlflow:5000
+      ICEBERG_REST_URI: http://iceberg-rest:8181
+      S3_ENDPOINT: ${S3_ENDPOINT}
+      S3_ACCESS_KEY: ${S3_ACCESS_KEY}
+      S3_SECRET_KEY: ${S3_SECRET_KEY}
+      S3_REGION: ${S3_REGION:-auto}
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY}
+    depends_on:
+      mlflow:
+        condition: service_healthy
+      iceberg-rest:
+        condition: service_healthy
+    ports:
+      - "8501:8501"   # Streamlit  →  http://localhost:8501
+    networks:
+      - lakehouse
