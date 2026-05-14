@@ -8,8 +8,10 @@ echo "=== [1/4] Setting up Python virtual environment ==="
 if command -v apk >/dev/null 2>&1; then
   apk add --no-cache python3 py3-pip py3-virtualenv gcc musl-dev libffi-dev
 elif command -v apt-get >/dev/null 2>&1; then
-  sudo apt-get update -qq
-  sudo apt-get install -y python3-pip python3-venv build-essential libffi-dev
+  # Xóa các repo lỗi GPG (yarn) để apt-get update không fail
+  sudo rm -f /etc/apt/sources.list.d/yarn.list
+  sudo apt-get update -qq || true
+  sudo apt-get install -y python3-pip python3-venv build-essential libffi-dev || true
 fi
 
 python3 -m venv "$VENV_PATH"
