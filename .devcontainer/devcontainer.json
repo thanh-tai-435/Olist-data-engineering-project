@@ -59,7 +59,9 @@
       ],
       "settings": {
         "python.defaultInterpreterPath": "/usr/local/bin/python3",
-        "terminal.integrated.defaultProfile.linux": "bash"
+        "terminal.integrated.defaultProfile.linux": "bash",
+        "python.terminal.useEnvFile": true,
+        "python.envFile": "${workspaceFolder}/.env"
       }
     }
   },

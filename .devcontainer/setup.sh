@@ -4,6 +4,9 @@ set -e
 
 VENV_PATH="/workspaces/.venv"
 
+echo "=== [0/4] Fixing Docker socket permissions ==="
+sudo chmod 666 /var/run/docker.sock 2>/dev/null || true
+
 echo "=== [1/4] Setting up Python virtual environment ==="
 if command -v apk >/dev/null 2>&1; then
   apk add --no-cache python3 py3-pip py3-virtualenv gcc musl-dev libffi-dev
