@@ -67,7 +67,7 @@ def ingest_csv(table_name: str, csv_path: Path, timestamp_cols: list[str] = None
         tbl = catalog.create_table(
             identifier=full_table,
             schema=arrow_table.schema,
-            location=f"s3://olist-lakehouse/bronze/{table_name}",
+            location=f"s3://retail-data-lake/bronze/{table_name}",
         )
 
     tbl.append(arrow_table)

@@ -81,7 +81,7 @@ services:
       CATALOG_JDBC_USER: olist
       CATALOG_JDBC_PASSWORD: ${POSTGRES_PASSWORD:-olistpass}
       CATALOG_JDBC_INITIALIZE__SCHEMA: "true"
-      CATALOG_WAREHOUSE: s3://olist-lakehouse
+      CATALOG_WAREHOUSE: s3://retail-data-lake
       CATALOG_IO__IMPL: org.apache.iceberg.aws.s3.S3FileIO
       CATALOG_S3_ENDPOINT: ${S3_ENDPOINT}
       CATALOG_S3_PATH__STYLE__ACCESS: ${S3_PATH_STYLE:-false}
@@ -336,20 +336,20 @@ services:
     image: ghcr.io/mlflow/mlflow:v2.13.0
     container_name: olist-mlflow
     restart: unless-stopped
-    command: >
-      sh -c "pip install --quiet psycopg2-binary &&
-      mlflow server
-        --backend-store-uri postgresql://olist:${POSTGRES_PASSWORD:-olistpass}@postgres:5432/mlflow
-        --default-artifact-root s3://olist-lakehouse/mlflow
-        --host 0.0.0.0
-        --port 5000
-        --serve-artifacts"
+    entrypoint: ["/bin/sh", "-c"]
+    command:
+      - |
+        pip install -q psycopg2-binary
+        exec mlflow server \
+          --host 0.0.0.0 \
+          --port 5000 \
+          --backend-store-uri postgresql://olist:${POSTGRES_PASSWORD:-olistpass}@postgres:5432/mlflow \
+          --default-artifact-root s3://retail-data-lake/mlflow
     environment:
       MLFLOW_S3_ENDPOINT_URL: ${S3_ENDPOINT}
       AWS_ACCESS_KEY_ID: ${S3_ACCESS_KEY}
       AWS_SECRET_ACCESS_KEY: ${S3_SECRET_KEY}
       AWS_DEFAULT_REGION: ${S3_REGION:-auto}
-      GUNICORN_CMD_ARGS: "--bind 0.0.0.0:5000"
     depends_on:
       postgres:
         condition: service_healthy
