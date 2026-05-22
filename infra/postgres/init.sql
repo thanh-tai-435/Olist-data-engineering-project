@@ -16,6 +16,10 @@ GRANT ALL PRIVILEGES ON DATABASE prefect TO olist;
 CREATE DATABASE mlflow;
 GRANT ALL PRIVILEGES ON DATABASE mlflow TO olist;
 
+-- Coder cloud IDE metadata (workspaces, users, templates)
+CREATE DATABASE coder;
+GRANT ALL PRIVILEGES ON DATABASE coder TO olist;
+
 -- External sample data (used by Trino postgres catalog for federation demos)
 CREATE DATABASE olist_meta;
 GRANT ALL PRIVILEGES ON DATABASE olist_meta TO olist;

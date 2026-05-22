@@ -9,9 +9,14 @@
 #   --profile spark            Spark cluster (distributed processing)
 #   --profile query            Trino (query federation)
 #   --profile bi               Streamlit BI app
+#   --profile coder            Coder cloud IDE (accessible from any network via Cloudflare Tunnel)
 #
 # Full stack:
 #   docker compose --profile spark --profile query --profile bi up -d
+#
+# Coder (team remote dev env):
+#   docker compose --profile coder up -d
+#   See CODER_SETUP.md for Cloudflare Tunnel setup
 #
 # Storage: Cloudflare R2 – set S3_ENDPOINT / S3_ACCESS_KEY / S3_SECRET_KEY in .env
 # Bucket "olist-lakehouse" must be pre-created in the Cloudflare dashboard.
@@ -28,6 +33,7 @@ volumes:
   redpanda_data:
   prefect_home:
   spark_logs:
+  coder_data:
 
 x-spark-env: &spark-env
   AWS_ACCESS_KEY_ID: ${S3_ACCESS_KEY}
@@ -400,5 +406,76 @@ services:
         condition: service_healthy
     ports:
       - "8501:8501"   # Streamlit  →  http://localhost:8501
+    networks:
+      - lakehouse
+
+  # ──────────────────────────────────────────────────────────
+  # CLOUD IDE – CODER
+  # Profile: --profile coder
+  # Local UI:   http://localhost:7080
+  # Team URL:   ${CODER_ACCESS_URL}  (via Cloudflare Tunnel)
+  # Docs:       CODER_SETUP.md
+  #
+  # Coder tạo workspace containers trên Docker host.
+  # Mỗi thành viên có workspace riêng, cài sẵn Python/dbt/Spark.
+  # ──────────────────────────────────────────────────────────
+
+  coder:
+    image: ghcr.io/coder/coder:latest
+    container_name: olist-coder
+    restart: unless-stopped
+    profiles: ["coder"]
+    user: "0"   # root required to create workspace containers via Docker socket
+    environment:
+      CODER_PG_CONNECTION_URL: "postgresql://olist:${POSTGRES_PASSWORD:-olistpass}@postgres:5432/coder?sslmode=disable"
+      CODER_ACCESS_URL: ${CODER_ACCESS_URL:-http://localhost:7080}
+      CODER_WILDCARD_ACCESS_URL: ${CODER_WILDCARD_ACCESS_URL:-}
+      CODER_HTTP_ADDRESS: "0.0.0.0:7080"
+      CODER_TELEMETRY_ENABLE: "false"
+      CODER_DISABLE_PASSWORD_AUTH: "false"
+      CODER_FIRST_USER_EMAIL: ${CODER_FIRST_USER_EMAIL}
+      CODER_FIRST_USER_PASSWORD: ${CODER_FIRST_USER_PASSWORD}
+      CODER_FIRST_USER_USERNAME: ${CODER_FIRST_USER_USERNAME}
+      # Pass lakehouse credentials so workspace templates can inherit them
+      S3_ENDPOINT: ${S3_ENDPOINT}
+      S3_ACCESS_KEY: ${S3_ACCESS_KEY}
+      S3_SECRET_KEY: ${S3_SECRET_KEY}
+      S3_REGION: ${S3_REGION:-auto}
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY}
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - coder_data:/home/coder/.config
+    ports:
+      - "7080:7080"   # Coder UI  →  http://localhost:7080
+    depends_on:
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:7080/healthz || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+    networks:
+      - lakehouse
+
+  # ──────────────────────────────────────────────────────────
+  # NGROK TUNNEL – truy cập Coder từ mọi mạng (URL cố định)
+  # Profile: --profile coder
+  # Static domain: ${NGROK_STATIC_DOMAIN}
+  # Lấy token + domain tại: https://dashboard.ngrok.com
+  # ──────────────────────────────────────────────────────────
+
+  ngrok:
+    image: ngrok/ngrok:latest
+    container_name: olist-ngrok
+    restart: unless-stopped
+    profiles: ["coder"]
+    command: http coder:7080 --domain=${NGROK_STATIC_DOMAIN} --log=stdout
+    environment:
+      NGROK_AUTHTOKEN: ${NGROK_AUTHTOKEN}
+    depends_on:
+      coder:
+        condition: service_healthy
     networks:
       - lakehouse
