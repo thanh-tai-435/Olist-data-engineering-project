@@ -27,6 +27,7 @@ name: olist-lakehouse
 networks:
   lakehouse:
     driver: bridge
+    enable_ipv6: false
 
 volumes:
   postgres_data:
@@ -38,6 +39,9 @@ volumes:
 x-spark-env: &spark-env
   AWS_ACCESS_KEY_ID: ${S3_ACCESS_KEY}
   AWS_SECRET_ACCESS_KEY: ${S3_SECRET_KEY}
+  # R2 endpoint – dùng bởi Spark S3A + Iceberg S3FileIO
+  SPARK_HADOOP_FS_S3A_ENDPOINT: ${S3_ENDPOINT}
+  SPARK_SQL_CATALOG_OLIST_S3_ENDPOINT: ${S3_ENDPOINT}
 
 services:
 
@@ -190,7 +194,7 @@ services:
   # ──────────────────────────────────────────────────────────
 
   spark-master:
-    image: bitnami/spark:3.5
+    image: bitnami/spark:3.5.0
     container_name: olist-spark-master
     restart: unless-stopped
     profiles: ["spark"]
@@ -212,7 +216,7 @@ services:
       - lakehouse
 
   spark-worker:
-    image: bitnami/spark:3.5
+    image: bitnami/spark:3.5.0
     container_name: olist-spark-worker
     restart: unless-stopped
     profiles: ["spark"]
@@ -254,6 +258,7 @@ services:
       S3_ACCESS_KEY: ${S3_ACCESS_KEY}
       S3_SECRET_KEY: ${S3_SECRET_KEY}
       S3_REGION: ${S3_REGION:-auto}
+      S3_PATH_STYLE: ${S3_PATH_STYLE:-false}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-olistpass}
     volumes:
       - ./trino/catalog:/etc/trino/catalog:ro
@@ -318,6 +323,9 @@ services:
       ICEBERG_REST_URI: ${ICEBERG_REST_URI:-http://iceberg-rest:8181}
       MLFLOW_TRACKING_URI: ${MLFLOW_TRACKING_URI:-http://mlflow:5000}
       REDPANDA_BROKERS: ${REDPANDA_BROKERS:-redpanda:9092}
+      # Spark: local[2] mặc định; đổi thành spark://spark-master:7077 khi dùng cluster
+      SPARK_MASTER: ${SPARK_MASTER:-local[2]}
+      SPARK_JARS_DIR: /app/spark-jars
     depends_on:
       prefect-server:
         condition: service_healthy
@@ -325,8 +333,10 @@ services:
         condition: service_healthy
     volumes:
       - ./ingestion:/app/ingestion:ro
-      - ./dbt:/app/dbt:ro
+      - ./spark/jobs:/app/spark/jobs:ro
+      - ./spark/jars:/app/spark-jars:ro
       - ./prefect/flows:/app/flows:ro
+      - ./streaming:/app/streaming:ro
       - ./data:/app/data:ro
       - prefect_home:/prefect
     working_dir: /app
@@ -399,6 +409,13 @@ services:
       S3_SECRET_KEY: ${S3_SECRET_KEY}
       S3_REGION: ${S3_REGION:-auto}
       ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY}
+      AI_PROVIDER: ${AI_PROVIDER:-openrouter}
+      OPENROUTER_API_KEY: ${OPENROUTER_API_KEY}
+      OPENROUTER_MODEL: ${OPENROUTER_MODEL:-meta-llama/llama-3.3-70b-instruct:free}
+      GROQ_API_KEY: ${GROQ_API_KEY}
+      GROQ_MODEL: ${GROQ_MODEL:-llama-3.3-70b-versatile}
+      REDPANDA_BROKERS: redpanda:9092
+      REFRESH_INTERVAL: "3"
     depends_on:
       mlflow:
         condition: service_healthy
@@ -477,5 +494,41 @@ services:
     depends_on:
       coder:
         condition: service_healthy
+    networks:
+      - lakehouse
+
+  # ──────────────────────────────────────────────────────────
+  # CLOUDFLARE QUICK TUNNELS – trycloudflare.com (no domain needed)
+  # URL thay đổi mỗi lần restart → xem URL: docker logs <container>
+  # ──────────────────────────────────────────────────────────
+  cf-prefect:
+    image: cloudflare/cloudflared:latest
+    container_name: olist-cf-prefect
+    restart: unless-stopped
+    command: tunnel --url http://prefect-server:4200
+    depends_on:
+      prefect-server:
+        condition: service_healthy
+    networks:
+      - lakehouse
+
+  cf-mlflow:
+    image: cloudflare/cloudflared:latest
+    container_name: olist-cf-mlflow
+    restart: unless-stopped
+    command: tunnel --url http://mlflow:5000
+    depends_on:
+      mlflow:
+        condition: service_healthy
+    networks:
+      - lakehouse
+
+  cf-redpanda:
+    image: cloudflare/cloudflared:latest
+    container_name: olist-cf-redpanda
+    restart: unless-stopped
+    command: tunnel --url http://redpanda-console:8080
+    depends_on:
+      - redpanda-console
     networks:
       - lakehouse

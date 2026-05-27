@@ -2,10 +2,15 @@
 Flow: Full Pipeline
 Orchestrator chạy toàn bộ pipeline: Bronze → Silver → Gold.
 Đây là flow chính để schedule hàng ngày.
+
+Silver + Gold dùng PySpark + Iceberg (spark_transforms.py).
+SPARK_MASTER env var điều khiển chế độ:
+  local[2]                  – mặc định, không cần Spark cluster
+  spark://spark-master:7077 – dùng Spark cluster (--profile spark)
 """
 from prefect import flow, get_run_logger
 from bronze_ingestion import bronze_ingestion_flow
-from dbt_transforms import silver_transform_flow, gold_transform_flow
+from spark_transforms import silver_transform_flow, gold_transform_flow
 
 
 @flow(

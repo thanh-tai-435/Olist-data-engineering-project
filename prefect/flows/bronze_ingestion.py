@@ -8,6 +8,7 @@ import pyarrow as pa
 from pathlib import Path
 from datetime import datetime, timezone
 from pyiceberg.catalog import load_catalog
+from pyiceberg.exceptions import NoSuchTableError
 from prefect import flow, task, get_run_logger
 from prefect.artifacts import create_table_artifact
 
@@ -56,14 +57,18 @@ def ingest_csv(table_name: str, csv_path: Path, timestamp_cols: list[str] = None
             if col in df.columns:
                 df[col] = pd.to_datetime(df[col], errors="coerce")
 
+    # PyIceberg chỉ hỗ trợ timestamp[us], pandas mặc định ra timestamp[ns]
+    for col in df.select_dtypes(include=["datetime64[ns]", "datetime64[ns, UTC]"]).columns:
+        df[col] = df[col].astype("datetime64[us]")
+
     df["_ingested_at"] = INGESTED_AT
     df["_source_file"] = csv_path.name
     arrow_table = pa.Table.from_pandas(df, preserve_index=False)
 
     catalog = get_catalog()
-    if catalog.table_exists(full_table):
+    try:
         tbl = catalog.load_table(full_table)
-    else:
+    except NoSuchTableError:
         tbl = catalog.create_table(
             identifier=full_table,
             schema=arrow_table.schema,
@@ -80,7 +85,7 @@ def ingest_csv(table_name: str, csv_path: Path, timestamp_cols: list[str] = None
     description="Ingest all Olist CSV files into Bronze Iceberg tables.",
     log_prints=True,
 )
-def bronze_ingestion_flow(data_root: str = None):
+def bronze_ingestion_flow(data_root: str | None = None):
     root = Path(data_root) if data_root else DATA_ROOT
     log = get_run_logger()
     log.info(f"Data root: {root}")

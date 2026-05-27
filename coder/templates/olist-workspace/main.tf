@@ -11,6 +11,20 @@ terraform {
   }
 }
 
+# ── trycloudflare URLs – cập nhật khi container restart ──────────────────────
+variable "prefect_url" {
+  description = "Prefect UI (trycloudflare)"
+  default     = "https://uploaded-refine-tribunal-boats.trycloudflare.com"
+}
+variable "mlflow_url" {
+  description = "MLflow UI (trycloudflare)"
+  default     = "https://massage-smtp-zinc-demands.trycloudflare.com"
+}
+variable "redpanda_url" {
+  description = "Redpanda Console (trycloudflare)"
+  default     = "https://archived-fastest-unto-licensed.trycloudflare.com"
+}
+
 provider "coder" {}
 provider "docker" {}
 
@@ -21,9 +35,60 @@ resource "coder_agent" "main" {
   arch = "amd64"
   os   = "linux"
   startup_script = <<-EOT
-    # Start code-server (redirect output to avoid pipe warning)
+    # Start code-server
     nohup code-server --bind-addr 0.0.0.0:13337 --auth none > /tmp/code-server.log 2>&1 &
-    # Install extensions in background after code-server starts
+    # IPv4-only TCP proxy: workaround Docker IPv6 DNS causing 502 in Coder apps
+    cat > /tmp/proxy.py << 'PYEOF'
+import socket, threading
+
+def pipe(src, dst):
+    try:
+        while True:
+            data = src.recv(4096)
+            if not data:
+                break
+            dst.sendall(data)
+    except Exception:
+        pass
+    finally:
+        src.close()
+        dst.close()
+
+def forward(client, dst_host, dst_port):
+    try:
+        info = socket.getaddrinfo(dst_host, dst_port, socket.AF_INET, socket.SOCK_STREAM)
+        srv = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        srv.connect(info[0][4])
+        threading.Thread(target=pipe, args=(client, srv), daemon=True).start()
+        threading.Thread(target=pipe, args=(srv, client), daemon=True).start()
+    except Exception:
+        client.close()
+
+def listen(local_port, dst_host, dst_port):
+    s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+    s.bind(('0.0.0.0', local_port))
+    s.listen(50)
+    while True:
+        client, _ = s.accept()
+        threading.Thread(target=forward, args=(client, dst_host, dst_port), daemon=True).start()
+
+for lport, host, dport in [
+    (15000, 'mlflow',           5000),   # MLflow
+    (14200, 'prefect-server',   4200),   # Prefect
+    (18080, 'redpanda-console', 8080),   # Redpanda Console
+    (18090, 'spark-master',     8090),   # Spark Master UI
+    (18082, 'trino',            8080),   # Trino  (internal port 8080)
+    (18501, 'streamlit',        8501),   # Streamlit BI
+]:
+    threading.Thread(target=listen, args=(lport, host, dport), daemon=True).start()
+
+import time
+while True:
+    time.sleep(3600)
+PYEOF
+    nohup python3 /tmp/proxy.py > /tmp/proxy.log 2>&1 &
+    # Install extensions in background
     sleep 5
     code-server --install-extension ms-python.python > /tmp/ext-install.log 2>&1 || true
     code-server --install-extension ms-toolsai.jupyter >> /tmp/ext-install.log 2>&1 || true
@@ -37,6 +102,60 @@ resource "coder_app" "code-server" {
   display_name = "VS Code"
   url          = "http://localhost:13337/?folder=/workspace"
   icon         = "/icon/code.svg"
+  subdomain    = false
+}
+
+resource "coder_app" "mlflow" {
+  agent_id     = coder_agent.main.id
+  slug         = "mlflow"
+  display_name = "MLflow"
+  url          = var.mlflow_url
+  icon         = "https://avatars.githubusercontent.com/u/39938107"
+  external     = true
+}
+
+resource "coder_app" "prefect" {
+  agent_id     = coder_agent.main.id
+  slug         = "prefect"
+  display_name = "Prefect"
+  url          = var.prefect_url
+  icon         = "https://avatars.githubusercontent.com/u/54695496"
+  external     = true
+}
+
+resource "coder_app" "redpanda" {
+  agent_id     = coder_agent.main.id
+  slug         = "redpanda"
+  display_name = "Redpanda Console"
+  url          = var.redpanda_url
+  icon         = "https://avatars.githubusercontent.com/u/73219787"
+  external     = true
+}
+
+resource "coder_app" "spark" {
+  agent_id     = coder_agent.main.id
+  slug         = "spark"
+  display_name = "Spark UI"
+  url          = "http://localhost:18090"
+  icon         = "https://spark.apache.org/images/spark-logo-trademark.png"
+  subdomain    = false
+}
+
+resource "coder_app" "trino" {
+  agent_id     = coder_agent.main.id
+  slug         = "trino"
+  display_name = "Trino"
+  url          = "http://localhost:18082"
+  icon         = "https://avatars.githubusercontent.com/u/74037631"
+  subdomain    = false
+}
+
+resource "coder_app" "streamlit" {
+  agent_id     = coder_agent.main.id
+  slug         = "streamlit"
+  display_name = "Streamlit BI"
+  url          = "http://localhost:18501"
+  icon         = "https://streamlit.io/images/brand/streamlit-mark-color.png"
   subdomain    = false
 }
 

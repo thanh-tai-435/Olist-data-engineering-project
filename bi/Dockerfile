@@ -15,7 +15,8 @@ RUN pip install --no-cache-dir \
     mlflow==2.13.0 \
     pandas==2.2.0 \
     requests==2.31.0 \
-    boto3==1.34.0
+    boto3==1.34.0 \
+    confluent-kafka==2.3.0
 
 COPY . .
 

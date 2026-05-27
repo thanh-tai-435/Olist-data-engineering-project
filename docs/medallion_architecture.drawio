@@ -1,0 +1,322 @@
+<mxGraphModel dx="1600" dy="900" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1654" pageHeight="1169" math="0" shadow="0">
+  <root>
+    <mxCell id="0" />
+    <mxCell id="1" parent="0" />
+
+    <!-- ══════════════════════════════════════════════════════════
+         TITLE
+    ══════════════════════════════════════════════════════════ -->
+    <mxCell id="2" value="Olist Data Lakehouse — Kiến Trúc Medallion (Bronze → Silver → Gold)"
+      style="text;html=1;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;fontSize=18;fontStyle=1;"
+      vertex="1" parent="1">
+      <mxGeometry x="100" y="20" width="1420" height="44" as="geometry" />
+    </mxCell>
+
+    <!-- ══════════════════════════════════════════════════════════
+         SOURCES
+    ══════════════════════════════════════════════════════════ -->
+    <mxCell id="10" value="📂 Nguồn Dữ Liệu"
+      style="swimlane;startSize=34;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=13;fontStyle=1;"
+      vertex="1" parent="1">
+      <mxGeometry x="20" y="80" width="190" height="830" as="geometry" />
+    </mxCell>
+
+    <mxCell id="11" value="E-Commerce (Kaggle Olist)"
+      style="text;html=1;strokeColor=#6c8ebf;fillColor=#bce4ff;align=center;fontSize=10;fontStyle=3;rounded=1;"
+      vertex="1" parent="10">
+      <mxGeometry x="5" y="42" width="178" height="22" as="geometry" />
+    </mxCell>
+    <mxCell id="12" value="orders_dataset.csv" style="rounded=1;fillColor=#fff;strokeColor=#6c8ebf;fontSize=10;align=left;spacingLeft=6;" vertex="1" parent="10"><mxGeometry x="5" y="70" width="178" height="24" as="geometry" /></mxCell>
+    <mxCell id="13" value="order_items_dataset.csv" style="rounded=1;fillColor=#fff;strokeColor=#6c8ebf;fontSize=10;align=left;spacingLeft=6;" vertex="1" parent="10"><mxGeometry x="5" y="98" width="178" height="24" as="geometry" /></mxCell>
+    <mxCell id="14" value="order_payments_dataset.csv" style="rounded=1;fillColor=#fff;strokeColor=#6c8ebf;fontSize=10;align=left;spacingLeft=6;" vertex="1" parent="10"><mxGeometry x="5" y="126" width="178" height="24" as="geometry" /></mxCell>
+    <mxCell id="15" value="order_reviews_dataset.csv" style="rounded=1;fillColor=#fff;strokeColor=#6c8ebf;fontSize=10;align=left;spacingLeft=6;" vertex="1" parent="10"><mxGeometry x="5" y="154" width="178" height="24" as="geometry" /></mxCell>
+    <mxCell id="16" value="products_dataset.csv" style="rounded=1;fillColor=#fff;strokeColor=#6c8ebf;fontSize=10;align=left;spacingLeft=6;" vertex="1" parent="10"><mxGeometry x="5" y="182" width="178" height="24" as="geometry" /></mxCell>
+    <mxCell id="17" value="sellers_dataset.csv" style="rounded=1;fillColor=#fff;strokeColor=#6c8ebf;fontSize=10;align=left;spacingLeft=6;" vertex="1" parent="10"><mxGeometry x="5" y="210" width="178" height="24" as="geometry" /></mxCell>
+    <mxCell id="18" value="customers_dataset.csv" style="rounded=1;fillColor=#fff;strokeColor=#6c8ebf;fontSize=10;align=left;spacingLeft=6;" vertex="1" parent="10"><mxGeometry x="5" y="238" width="178" height="24" as="geometry" /></mxCell>
+
+    <mxCell id="19" value="Marketing Funnel"
+      style="text;html=1;strokeColor=#6c8ebf;fillColor=#bce4ff;align=center;fontSize=10;fontStyle=3;rounded=1;"
+      vertex="1" parent="10">
+      <mxGeometry x="5" y="274" width="178" height="22" as="geometry" />
+    </mxCell>
+    <mxCell id="20" value="marketing_leads_dataset.csv" style="rounded=1;fillColor=#fff;strokeColor=#6c8ebf;fontSize=10;align=left;spacingLeft=6;" vertex="1" parent="10"><mxGeometry x="5" y="300" width="178" height="24" as="geometry" /></mxCell>
+    <mxCell id="21" value="closed_deals_dataset.csv" style="rounded=1;fillColor=#fff;strokeColor=#6c8ebf;fontSize=10;align=left;spacingLeft=6;" vertex="1" parent="10"><mxGeometry x="5" y="328" width="178" height="24" as="geometry" /></mxCell>
+
+    <mxCell id="22" value="📊 ~1,559,693 rows total"
+      style="text;html=1;strokeColor=#6c8ebf;fillColor=#bce4ff;align=center;fontSize=10;fontStyle=1;rounded=1;"
+      vertex="1" parent="10">
+      <mxGeometry x="5" y="368" width="178" height="26" as="geometry" />
+    </mxCell>
+
+    <mxCell id="23" value="🔴 Streaming (Redpanda)&#xa;olist.orders · olist.reviews"
+      style="rounded=1;fillColor=#fff2cc;strokeColor=#d6b656;fontSize=10;align=center;"
+      vertex="1" parent="10">
+      <mxGeometry x="5" y="408" width="178" height="42" as="geometry" />
+    </mxCell>
+
+    <!-- ══════════════════════════════════════════════════════════
+         BRONZE LAYER
+    ══════════════════════════════════════════════════════════ -->
+    <mxCell id="30" value="🥉 BRONZE LAYER"
+      style="swimlane;startSize=36;fillColor=#FFE4B5;strokeColor=#CD7F32;fontSize=14;fontStyle=1;fontColor=#6D4C00;"
+      vertex="1" parent="1">
+      <mxGeometry x="255" y="80" width="275" height="830" as="geometry" />
+    </mxCell>
+
+    <mxCell id="31" value="Raw · Append-only · Immutable"
+      style="text;html=1;strokeColor=none;fillColor=none;align=center;fontSize=10;fontStyle=2;"
+      vertex="1" parent="30">
+      <mxGeometry x="0" y="40" width="275" height="18" as="geometry" />
+    </mxCell>
+    <mxCell id="32" value="Tool: PyIceberg 0.6"
+      style="rounded=1;fillColor=#FFD5A0;strokeColor=#CD7F32;fontSize=10;fontStyle=1;align=center;"
+      vertex="1" parent="30">
+      <mxGeometry x="47" y="62" width="180" height="22" as="geometry" />
+    </mxCell>
+    <mxCell id="33" value="namespace: olist.bronze"
+      style="text;html=1;strokeColor=none;fillColor=none;align=left;fontSize=10;fontStyle=3;"
+      vertex="1" parent="30">
+      <mxGeometry x="8" y="90" width="258" height="18" as="geometry" />
+    </mxCell>
+
+    <mxCell id="34" value="E-Commerce Tables"
+      style="text;html=1;strokeColor=#CD7F32;fillColor=#FFD5A0;align=center;fontSize=10;fontStyle=1;rounded=1;"
+      vertex="1" parent="30">
+      <mxGeometry x="5" y="112" width="263" height="22" as="geometry" />
+    </mxCell>
+    <mxCell id="35" value="📋 ecommerce_orders" style="rounded=1;fillColor=#FFFAF0;strokeColor=#CD7F32;fontSize=10;align=left;spacingLeft=8;" vertex="1" parent="30"><mxGeometry x="5" y="138" width="263" height="24" as="geometry" /></mxCell>
+    <mxCell id="36" value="📋 ecommerce_order_items" style="rounded=1;fillColor=#FFFAF0;strokeColor=#CD7F32;fontSize=10;align=left;spacingLeft=8;" vertex="1" parent="30"><mxGeometry x="5" y="166" width="263" height="24" as="geometry" /></mxCell>
+    <mxCell id="37" value="📋 ecommerce_order_payments" style="rounded=1;fillColor=#FFFAF0;strokeColor=#CD7F32;fontSize=10;align=left;spacingLeft=8;" vertex="1" parent="30"><mxGeometry x="5" y="194" width="263" height="24" as="geometry" /></mxCell>
+    <mxCell id="38" value="📋 ecommerce_order_reviews" style="rounded=1;fillColor=#FFFAF0;strokeColor=#CD7F32;fontSize=10;align=left;spacingLeft=8;" vertex="1" parent="30"><mxGeometry x="5" y="222" width="263" height="24" as="geometry" /></mxCell>
+    <mxCell id="39" value="📋 ecommerce_products" style="rounded=1;fillColor=#FFFAF0;strokeColor=#CD7F32;fontSize=10;align=left;spacingLeft=8;" vertex="1" parent="30"><mxGeometry x="5" y="250" width="263" height="24" as="geometry" /></mxCell>
+    <mxCell id="40" value="📋 ecommerce_sellers" style="rounded=1;fillColor=#FFFAF0;strokeColor=#CD7F32;fontSize=10;align=left;spacingLeft=8;" vertex="1" parent="30"><mxGeometry x="5" y="278" width="263" height="24" as="geometry" /></mxCell>
+    <mxCell id="41" value="📋 ecommerce_customers" style="rounded=1;fillColor=#FFFAF0;strokeColor=#CD7F32;fontSize=10;align=left;spacingLeft=8;" vertex="1" parent="30"><mxGeometry x="5" y="306" width="263" height="24" as="geometry" /></mxCell>
+
+    <mxCell id="42" value="Marketing Tables"
+      style="text;html=1;strokeColor=#CD7F32;fillColor=#FFD5A0;align=center;fontSize=10;fontStyle=1;rounded=1;"
+      vertex="1" parent="30">
+      <mxGeometry x="5" y="342" width="263" height="22" as="geometry" />
+    </mxCell>
+    <mxCell id="43" value="📋 marketing_leads" style="rounded=1;fillColor=#FFFAF0;strokeColor=#CD7F32;fontSize=10;align=left;spacingLeft=8;" vertex="1" parent="30"><mxGeometry x="5" y="368" width="263" height="24" as="geometry" /></mxCell>
+    <mxCell id="44" value="📋 marketing_deals" style="rounded=1;fillColor=#FFFAF0;strokeColor=#CD7F32;fontSize=10;align=left;spacingLeft=8;" vertex="1" parent="30"><mxGeometry x="5" y="396" width="263" height="24" as="geometry" /></mxCell>
+
+    <mxCell id="45" value="✅ ACID (Iceberg snapshots)&#xa;✅ Append-only — không update/delete&#xa;✅ Metadata: _ingested_at, _source_file&#xa;✅ Parquet files trên Cloudflare R2"
+      style="text;html=1;strokeColor=#CD7F32;fillColor=#FFF0D0;align=left;fontSize=10;rounded=1;spacingLeft=8;spacingTop=4;"
+      vertex="1" parent="30">
+      <mxGeometry x="5" y="434" width="263" height="72" as="geometry" />
+    </mxCell>
+    <mxCell id="46" value="🔴 + Stream: Redpanda Consumer&#xa;   micro-batch 200 msgs / 15s timeout&#xa;   at-least-once delivery"
+      style="rounded=1;fillColor=#fff2cc;strokeColor=#d6b656;fontSize=10;align=left;spacingLeft=8;"
+      vertex="1" parent="30">
+      <mxGeometry x="5" y="518" width="263" height="52" as="geometry" />
+    </mxCell>
+
+    <!-- ══════════════════════════════════════════════════════════
+         SILVER LAYER
+    ══════════════════════════════════════════════════════════ -->
+    <mxCell id="50" value="🥈 SILVER LAYER"
+      style="swimlane;startSize=36;fillColor=#E8E8E8;strokeColor=#808080;fontSize=14;fontStyle=1;fontColor=#333;"
+      vertex="1" parent="1">
+      <mxGeometry x="585" y="80" width="295" height="830" as="geometry" />
+    </mxCell>
+
+    <mxCell id="51" value="Cleaned · Typed · Deduplicated"
+      style="text;html=1;strokeColor=none;fillColor=none;align=center;fontSize=10;fontStyle=2;"
+      vertex="1" parent="50">
+      <mxGeometry x="0" y="40" width="295" height="18" as="geometry" />
+    </mxCell>
+    <mxCell id="52" value="Tool: PySpark 3.5 — local[2]"
+      style="rounded=1;fillColor=#D0D0D0;strokeColor=#808080;fontSize=10;fontStyle=1;align=center;"
+      vertex="1" parent="50">
+      <mxGeometry x="47" y="62" width="200" height="22" as="geometry" />
+    </mxCell>
+    <mxCell id="53" value="namespace: olist.silver"
+      style="text;html=1;strokeColor=none;fillColor=none;align=left;fontSize=10;fontStyle=3;"
+      vertex="1" parent="50">
+      <mxGeometry x="8" y="90" width="280" height="18" as="geometry" />
+    </mxCell>
+
+    <mxCell id="54" value="Staging Tables (1-1 với nguồn, chỉ làm sạch)"
+      style="text;html=1;strokeColor=#808080;fillColor=#D0D0D0;align=center;fontSize=10;fontStyle=1;rounded=1;"
+      vertex="1" parent="50">
+      <mxGeometry x="5" y="112" width="283" height="22" as="geometry" />
+    </mxCell>
+    <mxCell id="55" value="🔵 stg_orders" style="rounded=1;fillColor=#F8F8F8;strokeColor=#808080;fontSize=10;align=left;spacingLeft=8;" vertex="1" parent="50"><mxGeometry x="5" y="138" width="283" height="24" as="geometry" /></mxCell>
+    <mxCell id="56" value="🔵 stg_order_items" style="rounded=1;fillColor=#F8F8F8;strokeColor=#808080;fontSize=10;align=left;spacingLeft=8;" vertex="1" parent="50"><mxGeometry x="5" y="166" width="283" height="24" as="geometry" /></mxCell>
+    <mxCell id="57" value="🔵 stg_order_payments  [agg → 1 row/order]" style="rounded=1;fillColor=#F8F8F8;strokeColor=#808080;fontSize=10;align=left;spacingLeft=8;" vertex="1" parent="50"><mxGeometry x="5" y="194" width="283" height="24" as="geometry" /></mxCell>
+    <mxCell id="58" value="🔵 stg_order_reviews   [dedup latest]" style="rounded=1;fillColor=#F8F8F8;strokeColor=#808080;fontSize=10;align=left;spacingLeft=8;" vertex="1" parent="50"><mxGeometry x="5" y="222" width="283" height="24" as="geometry" /></mxCell>
+    <mxCell id="59" value="🔵 stg_products" style="rounded=1;fillColor=#F8F8F8;strokeColor=#808080;fontSize=10;align=left;spacingLeft=8;" vertex="1" parent="50"><mxGeometry x="5" y="250" width="283" height="24" as="geometry" /></mxCell>
+    <mxCell id="60" value="🔵 stg_sellers         [normalize city/state]" style="rounded=1;fillColor=#F8F8F8;strokeColor=#808080;fontSize=10;align=left;spacingLeft=8;" vertex="1" parent="50"><mxGeometry x="5" y="278" width="283" height="24" as="geometry" /></mxCell>
+    <mxCell id="61" value="🔵 stg_customers       [dedup by customer_id]" style="rounded=1;fillColor=#F8F8F8;strokeColor=#808080;fontSize=10;align=left;spacingLeft=8;" vertex="1" parent="50"><mxGeometry x="5" y="306" width="283" height="24" as="geometry" /></mxCell>
+    <mxCell id="62" value="🔵 stg_marketing_leads" style="rounded=1;fillColor=#F8F8F8;strokeColor=#808080;fontSize=10;align=left;spacingLeft=8;" vertex="1" parent="50"><mxGeometry x="5" y="334" width="283" height="24" as="geometry" /></mxCell>
+    <mxCell id="63" value="🔵 stg_marketing_deals" style="rounded=1;fillColor=#F8F8F8;strokeColor=#808080;fontSize=10;align=left;spacingLeft=8;" vertex="1" parent="50"><mxGeometry x="5" y="362" width="283" height="24" as="geometry" /></mxCell>
+
+    <mxCell id="64" value="Intermediate Table (dùng bởi Gold layer)"
+      style="text;html=1;strokeColor=#4444CC;fillColor=#CCCCFF;align=center;fontSize=10;fontStyle=1;rounded=1;"
+      vertex="1" parent="50">
+      <mxGeometry x="5" y="400" width="283" height="22" as="geometry" />
+    </mxCell>
+    <mxCell id="65" value="🔷 int_orders_enriched&#xa;    orders ⋈ customers ⋈ items_agg&#xa;    ⋈ payments ⋈ reviews&#xa;    + delivery_delay_days"
+      style="rounded=1;fillColor=#F0F0FF;strokeColor=#4444CC;fontSize=10;align=left;spacingLeft=8;"
+      vertex="1" parent="50">
+      <mxGeometry x="5" y="426" width="283" height="60" as="geometry" />
+    </mxCell>
+
+    <mxCell id="66" value="✅ Cast types: timestamp[us], double, int&#xa;✅ dropDuplicates() per bảng&#xa;✅ Normalize: lower/trim/upper text&#xa;✅ createOrReplace (idempotent refresh)"
+      style="text;html=1;strokeColor=#808080;fillColor=#EBEBEB;align=left;fontSize=10;rounded=1;spacingLeft=8;spacingTop=4;"
+      vertex="1" parent="50">
+      <mxGeometry x="5" y="500" width="283" height="68" as="geometry" />
+    </mxCell>
+
+    <!-- ══════════════════════════════════════════════════════════
+         GOLD LAYER
+    ══════════════════════════════════════════════════════════ -->
+    <mxCell id="70" value="🥇 GOLD LAYER"
+      style="swimlane;startSize=36;fillColor=#FFF9C4;strokeColor=#DAA520;fontSize=14;fontStyle=1;fontColor=#7A6000;"
+      vertex="1" parent="1">
+      <mxGeometry x="935" y="80" width="285" height="830" as="geometry" />
+    </mxCell>
+
+    <mxCell id="71" value="Aggregated · Partitioned · BI-ready"
+      style="text;html=1;strokeColor=none;fillColor=none;align=center;fontSize=10;fontStyle=2;"
+      vertex="1" parent="70">
+      <mxGeometry x="0" y="40" width="285" height="18" as="geometry" />
+    </mxCell>
+    <mxCell id="72" value="Tool: PySpark 3.5 — local[2]"
+      style="rounded=1;fillColor=#FFE97F;strokeColor=#DAA520;fontSize=10;fontStyle=1;align=center;"
+      vertex="1" parent="70">
+      <mxGeometry x="42" y="62" width="200" height="22" as="geometry" />
+    </mxCell>
+    <mxCell id="73" value="namespace: olist.gold"
+      style="text;html=1;strokeColor=none;fillColor=none;align=left;fontSize=10;fontStyle=3;"
+      vertex="1" parent="70">
+      <mxGeometry x="8" y="90" width="270" height="18" as="geometry" />
+    </mxCell>
+
+    <mxCell id="74" value="Fact Tables"
+      style="text;html=1;strokeColor=#DAA520;fillColor=#FFE97F;align=center;fontSize=10;fontStyle=1;rounded=1;"
+      vertex="1" parent="70">
+      <mxGeometry x="5" y="112" width="273" height="22" as="geometry" />
+    </mxCell>
+
+    <mxCell id="75" value="⭐ fct_orders&#xa;   Source: int_orders_enriched&#xa;   Partition: months(purchased_at)&#xa;   Rows: ~99,441 | delivery_status label"
+      style="rounded=1;fillColor=#FFFFF0;strokeColor=#DAA520;fontSize=10;align=left;spacingLeft=8;"
+      vertex="1" parent="70">
+      <mxGeometry x="5" y="138" width="273" height="66" as="geometry" />
+    </mxCell>
+
+    <mxCell id="76" value="⭐ fct_funnel&#xa;   Source: leads ⋈ deals&#xa;   Partition: years(first_contact_date)&#xa;   Rows: ~8,000 | days_to_close, is_converted"
+      style="rounded=1;fillColor=#FFFFF0;strokeColor=#DAA520;fontSize=10;align=left;spacingLeft=8;"
+      vertex="1" parent="70">
+      <mxGeometry x="5" y="212" width="273" height="66" as="geometry" />
+    </mxCell>
+
+    <mxCell id="77" value="Dimension Tables"
+      style="text;html=1;strokeColor=#DAA520;fillColor=#FFE97F;align=center;fontSize=10;fontStyle=1;rounded=1;"
+      vertex="1" parent="70">
+      <mxGeometry x="5" y="292" width="273" height="22" as="geometry" />
+    </mxCell>
+
+    <mxCell id="78" value="🔶 dim_sellers&#xa;   profile + perf metrics (aggregated)&#xa;   Rows: ~3,095 | no partition"
+      style="rounded=1;fillColor=#FFFFF0;strokeColor=#DAA520;fontSize=10;align=left;spacingLeft=8;"
+      vertex="1" parent="70">
+      <mxGeometry x="5" y="318" width="273" height="52" as="geometry" />
+    </mxCell>
+
+    <mxCell id="79" value="🔶 dim_customers&#xa;   dedup by customer_unique_id + CLV&#xa;   Rows: ~96,096 | is_churned, is_repeat"
+      style="rounded=1;fillColor=#FFFFF0;strokeColor=#DAA520;fontSize=10;align=left;spacingLeft=8;"
+      vertex="1" parent="70">
+      <mxGeometry x="5" y="378" width="273" height="52" as="geometry" />
+    </mxCell>
+
+    <mxCell id="80" value="✅ Dimensional model (Kimball)&#xa;✅ Iceberg hidden partitioning&#xa;✅ delivery_status: early/on_time/late&#xa;✅ CLV features: is_churned (90d), is_repeat&#xa;✅ Funnel: days_to_close, is_converted"
+      style="text;html=1;strokeColor=#DAA520;fillColor=#FEFEC8;align=left;fontSize=10;rounded=1;spacingLeft=8;spacingTop=4;"
+      vertex="1" parent="70">
+      <mxGeometry x="5" y="444" width="273" height="88" as="geometry" />
+    </mxCell>
+
+    <!-- ══════════════════════════════════════════════════════════
+         SERVING LAYER
+    ══════════════════════════════════════════════════════════ -->
+    <mxCell id="90" value="⚡ Serving"
+      style="swimlane;startSize=34;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=13;fontStyle=1;"
+      vertex="1" parent="1">
+      <mxGeometry x="1275" y="80" width="185" height="830" as="geometry" />
+    </mxCell>
+
+    <mxCell id="91" value="📊 Streamlit BI&#xa;(Historical Dashboard)"
+      style="rounded=1;fillColor=#fff;strokeColor=#82b366;fontSize=10;align=center;"
+      vertex="1" parent="90">
+      <mxGeometry x="8" y="44" width="168" height="48" as="geometry" />
+    </mxCell>
+    <mxCell id="92" value="🔴 Real-time Monitor&#xa;(Streamlit + Redpanda)"
+      style="rounded=1;fillColor=#fff2cc;strokeColor=#d6b656;fontSize=10;align=center;"
+      vertex="1" parent="90">
+      <mxGeometry x="8" y="102" width="168" height="48" as="geometry" />
+    </mxCell>
+    <mxCell id="93" value="🔍 Trino&#xa;(Query Federation)"
+      style="rounded=1;fillColor=#fff;strokeColor=#82b366;fontSize=10;align=center;"
+      vertex="1" parent="90">
+      <mxGeometry x="8" y="160" width="168" height="48" as="geometry" />
+    </mxCell>
+    <mxCell id="94" value="🤖 MLflow&#xa;(Delivery Delay / Churn)"
+      style="rounded=1;fillColor=#fff;strokeColor=#82b366;fontSize=10;align=center;"
+      vertex="1" parent="90">
+      <mxGeometry x="8" y="218" width="168" height="48" as="geometry" />
+    </mxCell>
+    <mxCell id="95" value="🧠 Agentic BI&#xa;(Claude API — NL→SQL)"
+      style="rounded=1;fillColor=#fff;strokeColor=#82b366;fontSize=10;align=center;"
+      vertex="1" parent="90">
+      <mxGeometry x="8" y="276" width="168" height="48" as="geometry" />
+    </mxCell>
+    <mxCell id="96" value="⚙️ Orchestration&#xa;Prefect @flow / @task"
+      style="text;html=1;strokeColor=#82b366;fillColor=#DAECD8;align=center;fontSize=10;fontStyle=1;rounded=1;"
+      vertex="1" parent="90">
+      <mxGeometry x="8" y="340" width="168" height="42" as="geometry" />
+    </mxCell>
+
+    <!-- ══════════════════════════════════════════════════════════
+         ARROWS — Batch flow
+    ══════════════════════════════════════════════════════════ -->
+    <mxCell id="100" value="PyIceberg&#xa;append()"
+      style="edgeStyle=orthogonalEdgeStyle;html=1;strokeColor=#CD7F32;strokeWidth=3;fontColor=#6D4C00;fontSize=10;fontStyle=1;exitX=1;exitY=0.4;exitDx=0;exitDy=0;entryX=0;entryY=0.4;entryDx=0;entryDy=0;"
+      edge="1" source="10" target="30" parent="1">
+      <mxGeometry relative="1" as="geometry" />
+    </mxCell>
+
+    <mxCell id="101" value="PySpark&#xa;createOrReplace"
+      style="edgeStyle=orthogonalEdgeStyle;html=1;strokeColor=#808080;strokeWidth=3;fontColor=#333;fontSize=10;fontStyle=1;exitX=1;exitY=0.4;exitDx=0;exitDy=0;entryX=0;entryY=0.4;entryDx=0;entryDy=0;"
+      edge="1" source="30" target="50" parent="1">
+      <mxGeometry relative="1" as="geometry" />
+    </mxCell>
+
+    <mxCell id="102" value="PySpark&#xa;createOrReplace&#xa;+ partition"
+      style="edgeStyle=orthogonalEdgeStyle;html=1;strokeColor=#DAA520;strokeWidth=3;fontColor=#7A6000;fontSize=10;fontStyle=1;exitX=1;exitY=0.4;exitDx=0;exitDy=0;entryX=0;entryY=0.4;entryDx=0;entryDy=0;"
+      edge="1" source="50" target="70" parent="1">
+      <mxGeometry relative="1" as="geometry" />
+    </mxCell>
+
+    <mxCell id="103" value="Iceberg scan&#xa;/ Trino SQL"
+      style="edgeStyle=orthogonalEdgeStyle;html=1;strokeColor=#82b366;strokeWidth=3;fontColor=#336600;fontSize=10;fontStyle=1;exitX=1;exitY=0.4;exitDx=0;exitDy=0;entryX=0;entryY=0.4;entryDx=0;entryDy=0;"
+      edge="1" source="70" target="90" parent="1">
+      <mxGeometry relative="1" as="geometry" />
+    </mxCell>
+
+    <!-- Stream arrow: Source → Bronze (dashed) -->
+    <mxCell id="104" value="Redpanda Consumer&#xa;(micro-batch)"
+      style="edgeStyle=orthogonalEdgeStyle;html=1;strokeColor=#d6b656;strokeWidth=2;dashed=1;fontColor=#7A6000;fontSize=10;fontStyle=1;exitX=1;exitY=0.65;exitDx=0;exitDy=0;entryX=0;entryY=0.65;entryDx=0;entryDy=0;"
+      edge="1" source="10" target="30" parent="1">
+      <mxGeometry relative="1" as="geometry" />
+    </mxCell>
+
+    <!-- ══════════════════════════════════════════════════════════
+         STORAGE FOOTER
+    ══════════════════════════════════════════════════════════ -->
+    <mxCell id="110" value="☁️  Cloudflare R2 Object Storage  —  Bucket: retail-data-lake  —  Iceberg REST Catalog: http://iceberg-rest:8181  —  Format: Apache Parquet"
+      style="text;html=1;strokeColor=#6c8ebf;fillColor=#dae8fc;align=center;fontSize=11;fontStyle=1;rounded=1;"
+      vertex="1" parent="1">
+      <mxGeometry x="255" y="928" width="955" height="32" as="geometry" />
+    </mxCell>
+
+  </root>
+</mxGraphModel>
