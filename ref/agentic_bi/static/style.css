@@ -1,0 +1,199 @@
+/* ============================================================
+   style.css v3 - Agentic BI
+   Fix: màu chữ chat input nổi bật hơn (#CBD5E1)
+        placeholder rõ hơn (#3D5A7A)
+        toàn bộ text không dùng màu quá tối
+   ============================================================ */
+
+@import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:ital,wght@0,300;0,400;0,500;0,600;0,700;1,400&display=swap');
+
+html, body, [class*="css"] {
+    font-family: 'IBM Plex Sans', sans-serif !important;
+    background-color: #080C14 !important;
+    color: #CBD5E1 !important;
+}
+.stApp { background: #080C14 !important; }
+
+/* ---- Sidebar ------------------------------------------------- */
+section[data-testid="stSidebar"] {
+    background: linear-gradient(180deg, #0A1020 0%, #080C14 100%) !important;
+    border-right: 1px solid #1A2840 !important;
+}
+section[data-testid="stSidebar"] * { color: #7B96B2 !important; }
+section[data-testid="stSidebar"] h2 {
+    color: #CBD5E1 !important;
+    font-size: 13px !important;
+    font-weight: 700 !important;
+    letter-spacing: 4px !important;
+    text-transform: uppercase;
+    font-family: 'IBM Plex Mono', monospace !important;
+}
+section[data-testid="stSidebar"] .stSelectbox > div > div {
+    background: #0D1825 !important;
+    border: 1px solid #1E3050 !important;
+    color: #7B96B2 !important;
+    border-radius: 8px !important;
+}
+
+/* ---- Logo ---------------------------------------------------- */
+.logo-wrap { display:flex; align-items:center; gap:10px; margin-bottom:4px; }
+.logo-text-main {
+    font-family:'IBM Plex Mono',monospace;
+    font-size:15px; font-weight:700;
+    color:#E2E8F0 !important;
+    letter-spacing:3px; text-transform:uppercase; line-height:1.2;
+}
+.logo-text-sub {
+    font-family:'IBM Plex Mono',monospace;
+    font-size:8px; color:#3B82F6 !important;
+    letter-spacing:2px; text-transform:uppercase;
+}
+
+/* ---- Status dots --------------------------------------------- */
+.status-row {
+    display:flex; align-items:center; gap:7px;
+    font-size:12px; color:#4A6A8A !important;
+    margin:4px 0; font-family:'IBM Plex Mono',monospace;
+}
+.dot-ok { width:7px;height:7px;border-radius:50%;background:#10B981;flex-shrink:0;box-shadow:0 0 6px #10B981; }
+
+/* ---- Section headings ---------------------------------------- */
+.section-title {
+    font-family:'IBM Plex Mono',monospace;
+    font-size:10px; font-weight:600;
+    letter-spacing:3px; text-transform:uppercase;
+    color:#2A4060; margin-bottom:4px;
+}
+.section-divider { border:none; border-top:1px solid #0F1E33; margin:6px 0 18px 0; }
+
+/* ---- KPI Cards ----------------------------------------------- */
+.kpi-card {
+    background:linear-gradient(145deg,#0D1928 0%,#0A1420 100%);
+    border:1px solid #162236;
+    border-top:2px solid var(--accent,#3B82F6);
+    border-radius:12px; padding:20px 22px;
+    position:relative; overflow:hidden;
+}
+.kpi-label {
+    font-family:'IBM Plex Mono',monospace;
+    font-size:9px; font-weight:600;
+    letter-spacing:2.5px; text-transform:uppercase;
+    color:#2A4060; margin-bottom:10px;
+}
+.kpi-value {
+    font-size:26px; font-weight:700;
+    color:#E2E8F0; letter-spacing:-0.5px;
+    line-height:1; margin-bottom:8px;
+    font-variant-numeric:tabular-nums;
+}
+.kpi-sub { font-size:11px; font-weight:500; }
+
+/* ---- Chat bubbles -------------------------------------------- */
+.chat-user {
+    background:#0C1828; border:1px solid #162236;
+    border-left:3px solid #3B82F6;
+    border-radius:0 10px 10px 0;
+    padding:13px 17px; margin:10px 0;
+    font-size:14px; color:#8BAACC; line-height:1.65;
+}
+.chat-label {
+    font-family:'IBM Plex Mono',monospace;
+    font-size:8px; letter-spacing:2.5px;
+    font-weight:600; text-transform:uppercase;
+    margin-bottom:6px; opacity:0.9;
+}
+.chat-assistant {
+    background:#080F1A; border:1px solid #0F1E2E;
+    border-left:3px solid #10B981;
+    border-radius:0 10px 10px 0;
+    padding:13px 17px; margin:10px 0;
+    font-size:14px; color:#8BAACC; line-height:1.7;
+}
+.chat-error {
+    background:#110808; border:1px solid #2D0F0F;
+    border-left:3px solid #EF4444;
+    border-radius:0 10px 10px 0;
+    padding:13px 17px; margin:10px 0;
+    font-size:13px; color:#FDA4AF; line-height:1.6;
+}
+
+/* ---- Status widget ------------------------------------------- */
+[data-testid="stStatus"] {
+    background:#0A1420 !important;
+    border:1px solid #162236 !important;
+    border-radius:10px !important;
+}
+[data-testid="stStatus"] p,
+[data-testid="stStatus"] span { color:#4A6A8A !important; font-size:12px !important; }
+
+/* ---- Expander ------------------------------------------------ */
+[data-testid="stExpander"] {
+    background:#080F1A !important;
+    border:1px solid #0F1E2E !important;
+    border-radius:8px !important;
+}
+[data-testid="stExpander"] summary p {
+    color:#2A4060 !important;
+    font-size:12px !important;
+    font-family:'IBM Plex Mono',monospace !important;
+}
+
+/* ---- Dataframe ----------------------------------------------- */
+[data-testid="stDataFrame"] { border:1px solid #0F1E2E !important; border-radius:8px !important; }
+.stDataFrame th { background:#0A1420 !important; color:#3B82F6 !important; font-family:'IBM Plex Mono',monospace !important; font-size:10px !important; letter-spacing:1px !important; }
+.stDataFrame td { color:#7B96B2 !important; font-size:12px !important; }
+
+/* ---- Code ---------------------------------------------------- */
+pre, code {
+    background:#050A12 !important; border:1px solid #0F1E2E !important;
+    border-radius:8px !important; color:#60A5FA !important;
+    font-family:'IBM Plex Mono',monospace !important; font-size:12px !important;
+}
+
+/* ---- Chat input: KEY FIX - chữ phải nổi bật -------------- */
+[data-testid="stChatInput"] {
+    background:#0D1E35 !important;
+    border:1px solid #1E3A5A !important;
+    border-radius:12px !important;
+}
+[data-testid="stChatInput"] textarea {
+    background: #0D1E35 !important;
+    color: #CBD5E1 !important;          /* Xanh xám sáng, nổi trên nền tối */
+    font-size: 14px !important;
+    font-family: 'IBM Plex Sans', sans-serif !important;
+    caret-color: #3B82F6 !important;
+}
+[data-testid="stChatInput"] textarea::placeholder {
+    color: #3D5A7A !important;          /* Placeholder đủ thấy, không chìm */
+    font-style: italic;
+}
+/* Override mọi child element trong chat input */
+[data-testid="stChatInput"] * {
+    color: #CBD5E1 !important;
+}
+[data-testid="stChatInput"] [data-testid="stChatInputTextArea"] {
+    color: #CBD5E1 !important;
+}
+
+/* ---- Button -------------------------------------------------- */
+.stButton > button {
+    background:#0A1420 !important; border:1px solid #162236 !important;
+    color:#3A5A7A !important; border-radius:8px !important;
+    font-size:11px !important; font-family:'IBM Plex Mono',monospace !important;
+    letter-spacing:1px !important; transition:all 0.2s ease;
+}
+.stButton > button:hover {
+    background:#0F1E33 !important; border-color:#3B82F6 !important;
+    color:#60A5FA !important;
+}
+
+/* ---- Scrollbar ---------------------------------------------- */
+::-webkit-scrollbar { width:4px; height:4px; }
+::-webkit-scrollbar-track { background:#080C14; }
+::-webkit-scrollbar-thumb { background:#162236; border-radius:4px; }
+
+/* ---- Misc ---------------------------------------------------- */
+.stCaption, small { color:#1A3050 !important; font-size:11px !important; }
+h1,h2,h3,h4 { color:#CBD5E1 !important; font-family:'IBM Plex Sans',sans-serif !important; }
+hr { border-color:#0F1828 !important; }
+p { color:#4A6A8A; }

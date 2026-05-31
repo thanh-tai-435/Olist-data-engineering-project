@@ -1,0 +1,20 @@
+# ============================================================
+# docker-compose.yml - Local development orchestration
+# Usage: docker-compose up --build
+# The .env file is loaded automatically by Docker Compose.
+# Volume mount persists DuckDB data between container restarts.
+# ============================================================
+
+version: "3.9"
+
+services:
+  agentic-bi:
+    build: .
+    container_name: agentic_bi_app
+    ports:
+      - "8501:8501"      # Forward to localhost:8501 (VSCode port forwarding)
+    env_file:
+      - .env             # Inject GROQ_API_KEY and other secrets
+    volumes:
+      - ./data:/app/data # Persist DuckDB file across rebuilds
+    restart: unless-stopped
