@@ -1,0 +1,41 @@
+"""Central config — reads env vars once, fails fast on missing required keys."""
+import os
+import sys
+
+def _get(key: str, default: str = "") -> str:
+    return os.environ.get(key, default)
+
+def _require(key: str) -> str:
+    val = os.environ.get(key, "")
+    if not val:
+        print(f"[config] ERROR: required env var {key!r} is not set.", file=sys.stderr)
+        sys.exit(1)
+    return val
+
+# ── Iceberg / S3 ──────────────────────────────────────────────────────────────
+ICEBERG_URI   = _get("ICEBERG_REST_URI", "http://iceberg-rest:8181")
+S3_ENDPOINT   = _get("S3_ENDPOINT")
+S3_ACCESS_KEY = _get("S3_ACCESS_KEY")
+S3_SECRET_KEY = _get("S3_SECRET_KEY")
+S3_REGION     = _get("S3_REGION", "auto")
+
+# ── LLM provider ──────────────────────────────────────────────────────────────
+AI_PROVIDER      = _get("AI_PROVIDER", "openrouter")   # openrouter | groq | anthropic
+OPENROUTER_KEY   = _get("OPENROUTER_API_KEY")
+OPENROUTER_MODEL = _get("OPENROUTER_MODEL", "meta-llama/llama-3.3-70b-instruct:free")
+GROQ_KEY         = _get("GROQ_API_KEY")
+GROQ_MODEL       = _get("GROQ_MODEL", "llama-3.3-70b-versatile")
+ANTHROPIC_KEY    = _get("ANTHROPIC_API_KEY")
+CLAUDE_MODEL     = _get("CLAUDE_MODEL", "claude-3-5-haiku-20241022")
+
+# ── App constants ──────────────────────────────────────────────────────────────
+GOLD_TABLES  = ["fct_orders", "fct_funnel", "dim_sellers", "dim_customers"]
+MAX_ROWS     = 1_000
+MAX_HISTORY  = 10
+MAX_RETRIES  = 3
+
+def active_llm_key() -> str:
+    return {"openrouter": OPENROUTER_KEY, "groq": GROQ_KEY, "anthropic": ANTHROPIC_KEY}.get(AI_PROVIDER, "")
+
+def active_model_label() -> str:
+    return {"openrouter": OPENROUTER_MODEL, "groq": GROQ_MODEL, "anthropic": CLAUDE_MODEL}.get(AI_PROVIDER, AI_PROVIDER)

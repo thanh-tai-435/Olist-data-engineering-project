@@ -194,21 +194,21 @@ services:
   # ──────────────────────────────────────────────────────────
 
   spark-master:
-    image: bitnami/spark:3.5.0
+    image: apache/spark:3.5.0
     container_name: olist-spark-master
     restart: unless-stopped
     profiles: ["spark"]
+    entrypoint: ["/opt/spark/sbin/start-master.sh"]
     environment:
       <<: *spark-env
-      SPARK_MODE: master
       SPARK_MASTER_HOST: spark-master
-      SPARK_MASTER_PORT_NUMBER: 7077
-      SPARK_MASTER_WEBUI_PORT_NUMBER: 8090
+      SPARK_MASTER_PORT: 7077
+      SPARK_MASTER_WEBUI_PORT: 8090
     volumes:
-      - ./spark/jobs:/opt/bitnami/spark/jobs:ro
-      - ./spark/conf/spark-defaults.conf:/opt/bitnami/spark/conf/spark-defaults.conf:ro
-      - ./spark/jars:/opt/bitnami/spark/jars:ro
-      - spark_logs:/opt/bitnami/spark/logs
+      - ./spark/jobs:/opt/spark/jobs:ro
+      - ./spark/conf/spark-defaults.conf:/opt/spark/conf/spark-defaults.conf:ro
+      - ./spark/jars:/opt/spark/jars:ro
+      - spark_logs:/opt/spark/logs
     ports:
       - "7077:7077"   # Spark master RPC
       - "8090:8090"   # Spark master UI  →  http://localhost:8090
@@ -216,23 +216,22 @@ services:
       - lakehouse
 
   spark-worker:
-    image: bitnami/spark:3.5.0
+    image: apache/spark:3.5.0
     container_name: olist-spark-worker
     restart: unless-stopped
     profiles: ["spark"]
     depends_on:
       - spark-master
+    entrypoint: ["/opt/spark/sbin/start-worker.sh", "spark://spark-master:7077"]
     environment:
       <<: *spark-env
-      SPARK_MODE: worker
-      SPARK_MASTER_URL: spark://spark-master:7077
       SPARK_WORKER_CORES: ${SPARK_WORKER_CORES:-2}
       SPARK_WORKER_MEMORY: ${SPARK_WORKER_MEMORY:-2G}
     volumes:
-      - ./spark/jobs:/opt/bitnami/spark/jobs:ro
-      - ./spark/conf/spark-defaults.conf:/opt/bitnami/spark/conf/spark-defaults.conf:ro
-      - ./spark/jars:/opt/bitnami/spark/jars:ro
-      - spark_logs:/opt/bitnami/spark/logs
+      - ./spark/jobs:/opt/spark/jobs:ro
+      - ./spark/conf/spark-defaults.conf:/opt/spark/conf/spark-defaults.conf:ro
+      - ./spark/jars:/opt/spark/jars:ro
+      - spark_logs:/opt/spark/logs
     ports:
       - "8091:8081"   # Spark worker UI  →  http://localhost:8091
     networks:
@@ -476,6 +475,27 @@ services:
     networks:
       - lakehouse
 
+  coder-init:
+    image: ghcr.io/coder/coder:latest
+    container_name: olist-coder-init
+    restart: "no"
+    profiles: ["coder"]
+    entrypoint: ["/bin/sh", "-c"]
+    command:
+      - |
+        printf '%s\n%s\n' "$$CODER_FIRST_USER_PASSWORD" "$$CODER_FIRST_USER_PASSWORD" | \
+        coder reset-password "$$CODER_FIRST_USER_USERNAME" \
+          --postgres-url "postgresql://olist:$$POSTGRES_PASSWORD@postgres:5432/coder?sslmode=disable"
+    environment:
+      CODER_FIRST_USER_USERNAME: ${CODER_FIRST_USER_USERNAME}
+      CODER_FIRST_USER_PASSWORD: ${CODER_FIRST_USER_PASSWORD}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-olistpass}
+    depends_on:
+      coder:
+        condition: service_healthy
+    networks:
+      - lakehouse
+
   # ──────────────────────────────────────────────────────────
   # NGROK TUNNEL – truy cập Coder từ mọi mạng (URL cố định)
   # Profile: --profile coder
@@ -498,8 +518,36 @@ services:
       - lakehouse
 
   # ──────────────────────────────────────────────────────────
+  # URL REPORTER – tự fetch trycloudflare URLs khi cf-* restart
+  # Xem URLs: cat tunnel-urls.txt  |  docker logs olist-url-reporter
+  # ──────────────────────────────────────────────────────────
+  url-reporter:
+    image: docker:27-cli
+    container_name: olist-url-reporter
+    restart: unless-stopped
+    depends_on:
+      cf-prefect:
+        condition: service_started
+      cf-mlflow:
+        condition: service_started
+      cf-redpanda:
+        condition: service_started
+      postgres:
+        condition: service_healthy
+    environment:
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-olistpass}
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - ./scripts/tunnel_urls.sh:/tunnel_urls.sh:ro
+      - ./tunnel-urls.txt:/tunnel-urls.txt
+      - ./.env:/project.env
+    entrypoint: ["/bin/sh", "-c", "apk add --no-cache postgresql-client -q && /bin/sh /tunnel_urls.sh"]
+    networks:
+      - lakehouse
+
+  # ──────────────────────────────────────────────────────────
   # CLOUDFLARE QUICK TUNNELS – trycloudflare.com (no domain needed)
-  # URL thay đổi mỗi lần restart → xem URL: docker logs <container>
+  # URL thay đổi mỗi lần restart → xem URL: cat tunnel-urls.txt
   # ──────────────────────────────────────────────────────────
   cf-prefect:
     image: cloudflare/cloudflared:latest
@@ -530,5 +578,33 @@ services:
     command: tunnel --url http://redpanda-console:8080
     depends_on:
       - redpanda-console
+    networks:
+      - lakehouse
+
+  cf-streamlit:
+    image: cloudflare/cloudflared:latest
+    container_name: olist-cf-streamlit
+    restart: unless-stopped
+    profiles: ["bi"]
+    command: tunnel --url http://streamlit:8501
+    depends_on:
+      - streamlit
+    networks:
+      - lakehouse
+
+  # ──────────────────────────────────────────────────────────
+  # R2 BROWSER – Filestash
+  # Profile: --profile query
+  # UI: http://localhost:8484
+  # Browse Bronze / Silver / Gold files trực tiếp
+  # ──────────────────────────────────────────────────────────
+
+  filestash:
+    image: machines/filestash:latest
+    container_name: olist-filestash
+    restart: unless-stopped
+    profiles: ["query"]
+    ports:
+      - "8484:8334"
     networks:
       - lakehouse

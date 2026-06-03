@@ -2,27 +2,13 @@ terraform {
   required_providers {
     coder = {
       source  = "coder/coder"
-      version = "~> 0.23"
+      version = "~> 2.18"
     }
     docker = {
       source  = "kreuzwerker/docker"
       version = "~> 3.0"
     }
   }
-}
-
-# ── trycloudflare URLs – cập nhật khi container restart ──────────────────────
-variable "prefect_url" {
-  description = "Prefect UI (trycloudflare)"
-  default     = "https://uploaded-refine-tribunal-boats.trycloudflare.com"
-}
-variable "mlflow_url" {
-  description = "MLflow UI (trycloudflare)"
-  default     = "https://massage-smtp-zinc-demands.trycloudflare.com"
-}
-variable "redpanda_url" {
-  description = "Redpanda Console (trycloudflare)"
-  default     = "https://archived-fastest-unto-licensed.trycloudflare.com"
 }
 
 provider "coder" {}
@@ -109,7 +95,7 @@ resource "coder_app" "mlflow" {
   agent_id     = coder_agent.main.id
   slug         = "mlflow"
   display_name = "MLflow"
-  url          = var.mlflow_url
+  url          = "https://panel-photographic-symposium-institute.trycloudflare.com"
   icon         = "https://avatars.githubusercontent.com/u/39938107"
   external     = true
 }
@@ -118,7 +104,7 @@ resource "coder_app" "prefect" {
   agent_id     = coder_agent.main.id
   slug         = "prefect"
   display_name = "Prefect"
-  url          = var.prefect_url
+  url          = "https://lexmark-clock-minds-qui.trycloudflare.com"
   icon         = "https://avatars.githubusercontent.com/u/54695496"
   external     = true
 }
@@ -127,7 +113,7 @@ resource "coder_app" "redpanda" {
   agent_id     = coder_agent.main.id
   slug         = "redpanda"
   display_name = "Redpanda Console"
-  url          = var.redpanda_url
+  url          = "https://modules-camcorders-offline-gif.trycloudflare.com"
   icon         = "https://avatars.githubusercontent.com/u/73219787"
   external     = true
 }
