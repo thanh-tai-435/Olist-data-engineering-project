@@ -2,7 +2,7 @@
 # Auto-fetch trycloudflare URLs from running cf-* containers.
 # Writes to /tunnel-urls.txt, stdout, and patches Coder workspace app URLs in Postgres.
 
-CONTAINERS="olist-cf-prefect olist-cf-mlflow olist-cf-redpanda olist-cf-coder olist-cf-streamlit"
+CONTAINERS="olist-cf-prefect olist-cf-mlflow olist-cf-redpanda olist-cf-coder olist-cf-streamlit olist-cf-ml-serving"
 OUT=/tunnel-urls.txt
 PGCONN="postgresql://olist:${POSTGRES_PASSWORD:-olistpass}@postgres:5432/coder"
 
@@ -51,27 +51,42 @@ patch_mlflow_env() {
   echo "[url-reporter] MLFLOW_TRACKING_URI updated → $NEW_URL"
 }
 
+patch_ml_serving_env() {
+  NEW_URL="$1"
+  [ -z "$NEW_URL" ] && return
+
+  CURRENT=$(grep 'ML_SERVING_URL' /project.env 2>/dev/null | cut -d= -f2-)
+  [ "$CURRENT" = "$NEW_URL" ] && return
+
+  { grep -v 'ML_SERVING_URL' /project.env; echo "ML_SERVING_URL=${NEW_URL}"; } > /tmp/env.tmp
+  cat /tmp/env.tmp > /project.env
+  echo "[url-reporter] ML_SERVING_URL updated → $NEW_URL"
+}
+
 update_urls() {
   PREFECT_URL=$(get_url olist-cf-prefect)
   MLFLOW_URL=$(get_url olist-cf-mlflow)
   REDPANDA_URL=$(get_url olist-cf-redpanda)
   CODER_URL=$(get_url olist-cf-coder)
   STREAMLIT_URL=$(get_url olist-cf-streamlit)
+  ML_SERVING_URL=$(get_url olist-cf-ml-serving)
 
   {
     printf "=== Cloudflare Tunnel URLs ===\n"
     printf "Updated: %s\n\n" "$(date)"
-    printf "%-20s %s\n" "prefect:"  "${PREFECT_URL:-not running}"
-    printf "%-20s %s\n" "mlflow:"   "${MLFLOW_URL:-not running}"
-    printf "%-20s %s\n" "redpanda:" "${REDPANDA_URL:-not running}"
-    printf "%-20s %s\n" "coder:"    "${CODER_URL:-not running}"
-    printf "%-20s %s\n" "streamlit:""${STREAMLIT_URL:-not running}"
+    printf "%-20s %s\n" "prefect:"    "${PREFECT_URL:-not running}"
+    printf "%-20s %s\n" "mlflow:"     "${MLFLOW_URL:-not running}"
+    printf "%-20s %s\n" "redpanda:"   "${REDPANDA_URL:-not running}"
+    printf "%-20s %s\n" "coder:"      "${CODER_URL:-not running}"
+    printf "%-20s %s\n" "streamlit:"  "${STREAMLIT_URL:-not running}"
+    printf "%-20s %s\n" "ml-serving:" "${ML_SERVING_URL:-not running}"
   } | tee "$OUT"
   echo ""
 
   patch_coder_db "$PREFECT_URL" "$MLFLOW_URL" "$REDPANDA_URL"
   patch_prefect_env "$PREFECT_URL"
   patch_mlflow_env "$MLFLOW_URL"
+  patch_ml_serving_env "$ML_SERVING_URL"
 }
 
 sleep 8

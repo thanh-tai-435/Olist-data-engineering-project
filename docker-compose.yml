@@ -320,7 +320,7 @@ services:
       S3_SECRET_KEY: ${S3_SECRET_KEY}
       S3_REGION: ${S3_REGION:-auto}
       ICEBERG_REST_URI: ${ICEBERG_REST_URI:-http://iceberg-rest:8181}
-      MLFLOW_TRACKING_URI: ${MLFLOW_TRACKING_URI:-http://mlflow:5000}
+      MLFLOW_TRACKING_URI: http://mlflow:5000
       MLFLOW_S3_ENDPOINT_URL: ${S3_ENDPOINT}
       AWS_ACCESS_KEY_ID: ${S3_ACCESS_KEY}
       AWS_SECRET_ACCESS_KEY: ${S3_SECRET_KEY}
@@ -379,6 +379,39 @@ services:
     healthcheck:
       test: ["CMD-SHELL", "python3 -c \"import urllib.request; urllib.request.urlopen('http://localhost:5000/health')\" 2>/dev/null"]
       interval: 10s
+      timeout: 10s
+      retries: 5
+      start_period: 60s
+    networks:
+      - lakehouse
+
+  # ──────────────────────────────────────────────────────────
+  # ML SERVING – FastAPI (3 XGBoost models)
+  # Loads models from MLflow Registry on startup
+  # API docs: http://localhost:8080/docs
+  # Endpoints: /predict/delivery-delay  /predict/churn  /predict/lead
+  # ──────────────────────────────────────────────────────────
+
+  ml-serving:
+    build:
+      context: ./ml/serving
+      dockerfile: Dockerfile
+    container_name: olist-ml-serving
+    restart: unless-stopped
+    environment:
+      MLFLOW_TRACKING_URI: http://mlflow:5000
+      MLFLOW_S3_ENDPOINT_URL: ${S3_ENDPOINT}
+      AWS_ACCESS_KEY_ID: ${S3_ACCESS_KEY}
+      AWS_SECRET_ACCESS_KEY: ${S3_SECRET_KEY}
+      AWS_DEFAULT_REGION: ${S3_REGION:-auto}
+    depends_on:
+      mlflow:
+        condition: service_healthy
+    ports:
+      - "8080:8080"   # ML Serving API  →  http://localhost:8080/docs
+    healthcheck:
+      test: ["CMD-SHELL", "python3 -c \"import urllib.request; urllib.request.urlopen('http://localhost:8080/health')\""]
+      interval: 15s
       timeout: 10s
       retries: 5
       start_period: 60s
@@ -537,6 +570,8 @@ services:
         condition: service_started
       cf-redpanda:
         condition: service_started
+      cf-ml-serving:
+        condition: service_started
       postgres:
         condition: service_healthy
     environment:
@@ -594,6 +629,17 @@ services:
     command: tunnel --url http://streamlit:8501
     depends_on:
       - streamlit
+    networks:
+      - lakehouse
+
+  cf-ml-serving:
+    image: cloudflare/cloudflared:latest
+    container_name: olist-cf-ml-serving
+    restart: unless-stopped
+    command: tunnel --url http://ml-serving:8080
+    depends_on:
+      ml-serving:
+        condition: service_healthy
     networks:
       - lakehouse
 
