@@ -39,6 +39,18 @@ patch_prefect_env() {
   echo "[url-reporter] prefect-server restarted"
 }
 
+patch_mlflow_env() {
+  NEW_URL="$1"
+  [ -z "$NEW_URL" ] && return
+
+  CURRENT=$(grep 'MLFLOW_TRACKING_URI' /project.env 2>/dev/null | cut -d= -f2-)
+  [ "$CURRENT" = "$NEW_URL" ] && return
+
+  { grep -v 'MLFLOW_TRACKING_URI' /project.env; echo "MLFLOW_TRACKING_URI=${NEW_URL}"; } > /tmp/env.tmp
+  cat /tmp/env.tmp > /project.env
+  echo "[url-reporter] MLFLOW_TRACKING_URI updated → $NEW_URL"
+}
+
 update_urls() {
   PREFECT_URL=$(get_url olist-cf-prefect)
   MLFLOW_URL=$(get_url olist-cf-mlflow)
@@ -59,6 +71,7 @@ update_urls() {
 
   patch_coder_db "$PREFECT_URL" "$MLFLOW_URL" "$REDPANDA_URL"
   patch_prefect_env "$PREFECT_URL"
+  patch_mlflow_env "$MLFLOW_URL"
 }
 
 sleep 8
