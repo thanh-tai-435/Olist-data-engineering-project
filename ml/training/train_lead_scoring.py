@@ -32,8 +32,11 @@ log = logging.getLogger(__name__)
 EXPERIMENT = "lead-scoring"
 MODEL_NAME = "lead-scoring-xgb"
 
-CAT_COLS = ["origin", "business_segment", "lead_type", "business_type"]
-NUM_COLS = ["declared_monthly_revenue", "first_contact_month"]
+# Only pre-conversion features (available before the lead converts).
+# business_segment, lead_type, business_type, declared_monthly_revenue come
+# from the closed-deals table and are null for all non-converted leads → leakage.
+CAT_COLS = ["origin"]
+NUM_COLS = ["first_contact_month"]
 TARGET   = "is_converted"
 
 PARAMS = {

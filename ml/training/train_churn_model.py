@@ -32,8 +32,7 @@ EXPERIMENT = "customer-churn-prediction"
 MODEL_NAME = "customer-churn-xgb"
 
 CAT_COLS = ["customer_state"]
-NUM_COLS = ["days_since_last_order", "total_orders", "total_spend",
-            "avg_order_value", "is_repeat_customer"]
+NUM_COLS = ["total_orders", "total_spend", "avg_order_value", "is_repeat_customer"]
 TARGET   = "is_churned"
 
 PARAMS = {
@@ -53,10 +52,20 @@ PARAMS = {
 def prepare(df: pd.DataFrame):
     df = df[df["total_orders"] > 0].copy()
 
-    for col in NUM_COLS:
+    for col in ["total_orders", "total_spend", "avg_order_value", "is_repeat_customer"]:
         df[col] = pd.to_numeric(df[col], errors="coerce").fillna(0)
     df[CAT_COLS] = df[CAT_COLS].fillna("unknown").astype(str)
-    df[TARGET]   = df[TARGET].fillna(0).astype(int)
+
+    # Recompute days_since_last_order and is_churned using dataset's own max date
+    # (avoids all-churned issue when running years after dataset cutoff 2018)
+    if "last_order_date" in df.columns:
+        ref_date = pd.to_datetime(df["last_order_date"]).max()
+        df["days_since_last_order"] = (ref_date - pd.to_datetime(df["last_order_date"])).dt.days.fillna(9999)
+        df[TARGET] = (df["days_since_last_order"] > 90).astype(int)
+        log.info("Reference date for churn: %s (dataset max)", ref_date.date())
+    else:
+        df["days_since_last_order"] = pd.to_numeric(df.get("days_since_last_order", 0), errors="coerce").fillna(0)
+        df[TARGET] = df[TARGET].fillna(0).astype(int)
 
     X = df[CAT_COLS + NUM_COLS]
     y = df[TARGET]

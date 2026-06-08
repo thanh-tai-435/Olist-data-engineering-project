@@ -20,6 +20,10 @@ def get_catalog():
 
 
 def load_gold_table(table_name: str) -> pd.DataFrame:
+    # Strip catalog prefix if present (e.g. "olist.gold.fct_orders" → "gold.fct_orders")
+    parts = table_name.split(".")
+    if len(parts) == 3:
+        table_name = ".".join(parts[1:])
     catalog = get_catalog()
     log.info("Loading %s ...", table_name)
     df = catalog.load_table(table_name).scan().to_pandas()
