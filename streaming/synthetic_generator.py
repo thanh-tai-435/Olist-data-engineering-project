@@ -177,6 +177,11 @@ class Distributions:
         self.pt_labels = pc.index.tolist()
         self.pt_probs  = pc.values.tolist()
 
+        # Order status
+        sc2 = orders["order_status"].value_counts(normalize=True).dropna()
+        self.status_labels = sc2.index.tolist()
+        self.status_probs  = sc2.values.tolist()
+
         # Item count
         self.item_lambda = float(orders["item_count"].dropna().mean()) if "item_count" in orders else 1.3
 
@@ -250,7 +255,7 @@ class SyntheticGenerator:
             "order_id":                      oid,
             "customer_id":                   uuid.uuid4().hex,
             "customer_unique_id":            cid,
-            "order_status":                  "created",
+            "order_status":                  np.random.choice(self.dist.status_labels, p=self.dist.status_probs),
             "order_purchase_timestamp":      now.isoformat(),
             "order_approved_at":             now.isoformat(),
             "order_estimated_delivery_date": (now + timedelta(days=est_del)).isoformat(),
