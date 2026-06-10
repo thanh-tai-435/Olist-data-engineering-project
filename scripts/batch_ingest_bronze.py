@@ -124,8 +124,8 @@ def ingest_table(
 ) -> int:
     full_name = f"bronze.{table_name}"
     filename = r2_key.split("/")[-1]
-    print(f"\n{'─' * 60}")
-    print(f"  s3://{BUCKET}/{r2_key}  →  {full_name}")
+    print(f"\n{'-' * 60}")
+    print(f"  s3://{BUCKET}/{r2_key}  ->  {full_name}")
 
     try:
         df = read_csv_from_r2(r2_key)
@@ -137,7 +137,7 @@ def ingest_table(
 
     for col in timestamp_cols:
         if col in df.columns:
-            df[col] = pd.to_datetime(df[col], errors="coerce")
+            df[col] = pd.to_datetime(df[col], errors="coerce").astype("datetime64[us]")
 
     # Metadata columns (tiêu chuẩn Bronze layer)
     df["_ingested_at"] = INGESTED_AT
@@ -152,7 +152,7 @@ def ingest_table(
 
     if catalog.table_exists(full_name):
         tbl = catalog.load_table(full_name)
-        print(f"  Table exists → appending.")
+        print(f"  Table exists -> appending.")
     else:
         tbl = catalog.create_table(
             identifier=full_name,

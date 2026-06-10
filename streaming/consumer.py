@@ -24,7 +24,7 @@ import pandas as pd
 import pyarrow as pa
 from datetime import datetime, timezone
 from collections import defaultdict
-from confluent_kafka import Consumer, KafkaError
+from confluent_kafka import Consumer, KafkaError, KafkaException
 from pyiceberg.catalog import load_catalog
 from pyiceberg.exceptions import NoSuchTableError
 from pyiceberg.io.pyarrow import schema_to_pyarrow
@@ -101,10 +101,15 @@ def flush_buffer(
     # Bỏ metadata của producer (không thuộc schema Bronze)
     df.drop(columns=[c for c in ["_produced_at"] if c in df.columns], inplace=True)
 
-    # Cast timestamp columns
+    # Cast timestamp columns — normalize to UTC then strip tz (timezone-aware ISO strings
+    # from the synthetic generator would fail a naive astype otherwise)
     for col in ts_cols:
         if col in df.columns:
-            df[col] = pd.to_datetime(df[col], errors="coerce").astype("datetime64[us]")
+            df[col] = (
+                pd.to_datetime(df[col], errors="coerce", utc=True)
+                .dt.tz_localize(None)
+                .astype("datetime64[us]")
+            )
 
     # Metadata columns
     now = datetime.now(timezone.utc).isoformat()
@@ -181,7 +186,10 @@ def run() -> None:
                                  topic, len(buffers[topic]), age)
                         written = flush_buffer(catalog, topic, buffers[topic])
                         total_written += written
-                        consumer.commit(asynchronous=False)
+                        try:
+                            consumer.commit(asynchronous=False)
+                        except KafkaException:
+                            pass
                         buffers[topic].clear()
                         last_flush[topic] = time.monotonic()
                 continue
