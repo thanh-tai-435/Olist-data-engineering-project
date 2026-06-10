@@ -34,16 +34,23 @@ st.markdown("""
 
 
 @st.cache_resource
-def get_consumer() -> Consumer:
-    c = Consumer({
-        "bootstrap.servers":  BROKERS,
-        "group.id":           "streamlit-live-monitor",
-        "auto.offset.reset":  "earliest",
-        "enable.auto.commit": True,
-        "fetch.max.bytes":    1_048_576,
-    })
-    c.subscribe(["olist.orders"])
-    return c
+def get_consumer():
+    """Returns Consumer or None if broker is unreachable (e.g. Streamlit Cloud)."""
+    try:
+        from confluent_kafka import Consumer as _Consumer
+        c = _Consumer({
+            "bootstrap.servers":  BROKERS,
+            "group.id":           "streamlit-live-monitor",
+            "auto.offset.reset":  "earliest",
+            "enable.auto.commit": True,
+            "fetch.max.bytes":    1_048_576,
+            "socket.timeout.ms":  3000,
+            "session.timeout.ms": 6000,
+        })
+        c.subscribe(["olist.orders"])
+        return c
+    except Exception:
+        return None
 
 
 @st.cache_resource
@@ -76,6 +83,18 @@ def poll_messages(consumer: Consumer, max_msgs: int = 300) -> list:
 
 shared   = get_shared_state()
 consumer = get_consumer()
+
+if consumer is None:
+    st.title("Olist Real-Time Order Monitor")
+    st.warning(
+        "**Kafka broker không thể kết nối từ môi trường này.**\n\n"
+        "Tính năng Realtime Monitor yêu cầu truy cập trực tiếp vào Redpanda broker "
+        f"(`{BROKERS}`) qua Kafka protocol (TCP) — không khả dụng qua HTTP tunnel.\n\n"
+        "Chạy dashboard locally:\n"
+        "```\ndocker compose --profile bi up -d\n```\n"
+        f"Truy cập: `http://localhost:8501`"
+    )
+    st.stop()
 
 for msg in poll_messages(consumer):
     shared["orders"].append(msg)

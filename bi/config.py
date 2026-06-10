@@ -1,12 +1,20 @@
-"""Central config — reads env vars once, fails fast on missing required keys."""
+"""Central config — reads from st.secrets (Streamlit Cloud) then env vars."""
 import os
 import sys
 
 def _get(key: str, default: str = "") -> str:
+    # st.secrets takes priority (Streamlit Cloud deployment)
+    try:
+        import streamlit as st
+        val = st.secrets.get(key, "")
+        if val:
+            return val
+    except Exception:
+        pass
     return os.environ.get(key, default)
 
 def _require(key: str) -> str:
-    val = os.environ.get(key, "")
+    val = _get(key)
     if not val:
         print(f"[config] ERROR: required env var {key!r} is not set.", file=sys.stderr)
         sys.exit(1)

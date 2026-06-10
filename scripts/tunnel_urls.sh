@@ -2,7 +2,7 @@
 # Auto-fetch trycloudflare URLs from running cf-* containers.
 # Writes to /tunnel-urls.txt, stdout, and patches Coder workspace app URLs in Postgres.
 
-CONTAINERS="olist-cf-prefect olist-cf-mlflow olist-cf-redpanda olist-cf-coder olist-cf-streamlit olist-cf-ml-serving"
+CONTAINERS="olist-cf-prefect olist-cf-mlflow olist-cf-redpanda olist-cf-iceberg olist-cf-coder olist-cf-streamlit olist-cf-ml-serving"
 OUT=/tunnel-urls.txt
 PGCONN="postgresql://olist:${POSTGRES_PASSWORD:-olistpass}@postgres:5432/coder"
 
@@ -67,6 +67,7 @@ update_urls() {
   PREFECT_URL=$(get_url olist-cf-prefect)
   MLFLOW_URL=$(get_url olist-cf-mlflow)
   REDPANDA_URL=$(get_url olist-cf-redpanda)
+  ICEBERG_URL=$(get_url olist-cf-iceberg)
   CODER_URL=$(get_url olist-cf-coder)
   STREAMLIT_URL=$(get_url olist-cf-streamlit)
   ML_SERVING_URL=$(get_url olist-cf-ml-serving)
@@ -77,6 +78,7 @@ update_urls() {
     printf "%-20s %s\n" "prefect:"    "${PREFECT_URL:-not running}"
     printf "%-20s %s\n" "mlflow:"     "${MLFLOW_URL:-not running}"
     printf "%-20s %s\n" "redpanda:"   "${REDPANDA_URL:-not running}"
+    printf "%-20s %s\n" "iceberg:"    "${ICEBERG_URL:-not running}"
     printf "%-20s %s\n" "coder:"      "${CODER_URL:-not running}"
     printf "%-20s %s\n" "streamlit:"  "${STREAMLIT_URL:-not running}"
     printf "%-20s %s\n" "ml-serving:" "${ML_SERVING_URL:-not running}"

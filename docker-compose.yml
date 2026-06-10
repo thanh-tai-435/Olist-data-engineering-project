@@ -621,6 +621,17 @@ services:
     networks:
       - lakehouse
 
+  cf-iceberg:
+    image: cloudflare/cloudflared:latest
+    container_name: olist-cf-iceberg
+    restart: unless-stopped
+    command: tunnel --url http://iceberg-rest:8181
+    depends_on:
+      iceberg-rest:
+        condition: service_healthy
+    networks:
+      - lakehouse
+
   cf-streamlit:
     image: cloudflare/cloudflared:latest
     container_name: olist-cf-streamlit
