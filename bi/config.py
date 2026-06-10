@@ -20,13 +20,13 @@ S3_SECRET_KEY = _get("S3_SECRET_KEY")
 S3_REGION     = _get("S3_REGION", "auto")
 
 # ── LLM provider ──────────────────────────────────────────────────────────────
-AI_PROVIDER      = _get("AI_PROVIDER", "openrouter")   # openrouter | groq | anthropic
+AI_PROVIDER      = _get("AI_PROVIDER", "anthropic")    # anthropic | openrouter | groq
+ANTHROPIC_KEY    = _get("ANTHROPIC_API_KEY")
+CLAUDE_MODEL     = _get("CLAUDE_MODEL", "claude-sonnet-4-6")
 OPENROUTER_KEY   = _get("OPENROUTER_API_KEY")
 OPENROUTER_MODEL = _get("OPENROUTER_MODEL", "meta-llama/llama-3.3-70b-instruct:free")
 GROQ_KEY         = _get("GROQ_API_KEY")
 GROQ_MODEL       = _get("GROQ_MODEL", "llama-3.3-70b-versatile")
-ANTHROPIC_KEY    = _get("ANTHROPIC_API_KEY")
-CLAUDE_MODEL     = _get("CLAUDE_MODEL", "claude-3-5-haiku-20241022")
 
 # ── App constants ──────────────────────────────────────────────────────────────
 GOLD_TABLES  = ["fct_orders", "fct_funnel", "dim_sellers", "dim_customers"]
@@ -35,7 +35,7 @@ MAX_HISTORY  = 10
 MAX_RETRIES  = 3
 
 def active_llm_key() -> str:
-    return {"openrouter": OPENROUTER_KEY, "groq": GROQ_KEY, "anthropic": ANTHROPIC_KEY}.get(AI_PROVIDER, "")
+    return {"anthropic": ANTHROPIC_KEY, "openrouter": OPENROUTER_KEY, "groq": GROQ_KEY}.get(AI_PROVIDER, "")
 
 def active_model_label() -> str:
-    return {"openrouter": OPENROUTER_MODEL, "groq": GROQ_MODEL, "anthropic": CLAUDE_MODEL}.get(AI_PROVIDER, AI_PROVIDER)
+    return {"anthropic": CLAUDE_MODEL, "openrouter": OPENROUTER_MODEL, "groq": GROQ_MODEL}.get(AI_PROVIDER, AI_PROVIDER)

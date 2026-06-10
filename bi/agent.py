@@ -9,7 +9,6 @@ import json
 import re
 import duckdb
 import pandas as pd
-import requests
 
 from config import (
     AI_PROVIDER, ANTHROPIC_KEY, CLAUDE_MODEL,
@@ -106,7 +105,24 @@ Hãy sửa lại SQL. Chỉ trả về JSON (không markdown):
 
 # ── LLM abstraction ───────────────────────────────────────────────────────────
 
-def _call_openai_compat(url: str, key: str, model: str, messages: list, system: str, max_tokens: int = 1024) -> str:
+def _call_llm(messages: list, system: str, max_tokens: int = 1024) -> str:
+    """Call LLM. Primary: Anthropic Claude SDK. Fallback: openrouter / groq via HTTP."""
+    if AI_PROVIDER == "anthropic":
+        import anthropic
+        client = anthropic.Anthropic(api_key=ANTHROPIC_KEY)
+        resp = client.messages.create(
+            model=CLAUDE_MODEL, max_tokens=max_tokens, system=system,
+            messages=messages, temperature=0,
+        )
+        return resp.content[0].text
+
+    # Fallback: OpenAI-compatible endpoints (openrouter / groq)
+    import requests
+    if AI_PROVIDER == "openrouter":
+        url, key, model = "https://openrouter.ai/api/v1/chat/completions", OPENROUTER_KEY, OPENROUTER_MODEL
+    else:
+        url, key, model = "https://api.groq.com/openai/v1/chat/completions", GROQ_KEY, GROQ_MODEL
+
     all_msgs = ([{"role": "system", "content": system}] if system else []) + messages
     resp = requests.post(
         url,
@@ -116,25 +132,6 @@ def _call_openai_compat(url: str, key: str, model: str, messages: list, system: 
     )
     resp.raise_for_status()
     return resp.json()["choices"][0]["message"]["content"]
-
-
-def _call_llm(messages: list, system: str, max_tokens: int = 1024) -> str:
-    if AI_PROVIDER == "openrouter":
-        return _call_openai_compat(
-            "https://openrouter.ai/api/v1/chat/completions",
-            OPENROUTER_KEY, OPENROUTER_MODEL, messages, system, max_tokens,
-        )
-    if AI_PROVIDER == "groq":
-        return _call_openai_compat(
-            "https://api.groq.com/openai/v1/chat/completions",
-            GROQ_KEY, GROQ_MODEL, messages, system, max_tokens,
-        )
-    import anthropic
-    client = anthropic.Anthropic(api_key=ANTHROPIC_KEY)
-    resp = client.messages.create(
-        model=CLAUDE_MODEL, max_tokens=max_tokens, system=system, messages=messages,
-    )
-    return resp.content[0].text
 
 
 def _parse_json(text: str) -> dict:

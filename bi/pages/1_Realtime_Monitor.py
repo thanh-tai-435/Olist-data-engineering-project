@@ -84,9 +84,13 @@ for msg in poll_messages(consumer):
 orders_list = list(shared["orders"])
 
 if not orders_list:
-    st.title("🛒 Olist Real-Time Order Monitor")
-    st.info("Đang chờ events từ Redpanda... Hãy chạy producer:\n\n"
-            "```\ndocker exec olist-prefect-worker python /app/streaming/producer.py\n```")
+    st.title("Olist Real-Time Order Monitor")
+    st.info(
+        "Đang chờ events từ Redpanda...\n\n"
+        "Chạy synthetic generator (non-stationary HMM stream):\n"
+        "```\ndocker exec -e RATE=3 olist-prefect-worker "
+        "python /app/streaming/synthetic_generator.py\n```"
+    )
     time.sleep(REFRESH_INTERVAL)
     st.rerun()
 
@@ -104,13 +108,33 @@ df["payment_value"] = pd.to_numeric(
 elapsed = (datetime.now(timezone.utc) - shared["started"]).total_seconds()
 rate    = round(shared["total_received"] / max(elapsed / 60, 0.01), 1)
 
-col_title, col_metric = st.columns([5, 1])
+_REGIME_COLOR = {
+    "NORMAL":   ("#1e3a5f", "#60a5fa"),
+    "SPIKE":    ("#3a1e1e", "#f87171"),
+    "RECOVERY": ("#1e3a2f", "#34d399"),
+    "OUTAGE":   ("#2d2d1e", "#fbbf24"),
+}
+
+col_title, col_regime, col_metric = st.columns([4, 1, 1])
 with col_title:
-    st.title("🛒 Olist Real-Time Order Monitor")
+    st.title("Olist Real-Time Order Monitor")
+    is_synthetic = "_synthetic" in df.columns and df["_synthetic"].any()
+    src_label = "synthetic generator (HMM)" if is_synthetic else "CSV replay producer"
     st.caption(
-        f"Last updated: {datetime.now().strftime('%H:%M:%S')}  •  "
-        f"Buffered: {len(df):,}  •  Total received: {shared['total_received']:,}"
+        f"Source: **{src_label}**  •  "
+        f"Updated: {datetime.now().strftime('%H:%M:%S')}  •  "
+        f"Buffered: {len(df):,}  •  Total: {shared['total_received']:,}"
     )
+with col_regime:
+    if "_regime" in df.columns:
+        regime = df["_regime"].iloc[-1] if len(df) else "NORMAL"
+        bg, fg = _REGIME_COLOR.get(regime, ("#1e1e2e", "#ffffff"))
+        st.markdown(
+            f'<div style="background:{bg};color:{fg};padding:8px 12px;'
+            f'border-radius:8px;text-align:center;font-weight:700;font-size:0.85rem">'
+            f'Regime<br>{regime}</div>',
+            unsafe_allow_html=True,
+        )
 with col_metric:
     st.metric("Events/min", f"{rate:,.1f}")
 
@@ -201,10 +225,40 @@ with col_rev:
     else:
         st.info("Chưa có orders có payment_value > 0.")
 
+# Delivery delay distribution (synthetic generator computes this directly)
+if "actual_delivery_days" in df.columns:
+    col_del, col_reg = st.columns(2)
+    with col_del:
+        st.subheader("Delivery Days Distribution")
+        del_df = df["actual_delivery_days"].dropna().astype(int)
+        if not del_df.empty:
+            fig = px.histogram(del_df, nbins=20,
+                               color_discrete_sequence=["#818cf8"],
+                               labels={"value": "Actual Delivery Days", "count": "Orders"})
+            fig.update_layout(height=280, margin=dict(l=0, r=0, t=10, b=0),
+                              plot_bgcolor="#0e1117", paper_bgcolor="#0e1117",
+                              font_color="#fafafa", showlegend=False)
+            st.plotly_chart(fig, use_container_width=True)
+    with col_reg:
+        st.subheader("Regime Distribution")
+        if "_regime" in df.columns:
+            reg_counts = df["_regime"].value_counts().reset_index()
+            reg_counts.columns = ["regime", "count"]
+            colors = [_REGIME_COLOR.get(r, ("#888", "#fff"))[1] for r in reg_counts["regime"]]
+            fig = px.bar(reg_counts, x="regime", y="count",
+                         color="regime",
+                         color_discrete_map={r: _REGIME_COLOR.get(r, ("#888", "#fff"))[1]
+                                             for r in reg_counts["regime"]},
+                         labels={"regime": "", "count": "Events"})
+            fig.update_layout(height=280, margin=dict(l=0, r=0, t=10, b=0),
+                              plot_bgcolor="#0e1117", paper_bgcolor="#0e1117",
+                              font_color="#fafafa", showlegend=False)
+            st.plotly_chart(fig, use_container_width=True)
+
 st.subheader("Latest Orders")
 display_cols = [c for c in [
-    "order_id", "customer_id", "order_status",
-    "order_purchase_timestamp", "payment_value", "_received_at",
+    "order_id", "customer_state", "order_status",
+    "payment_value", "actual_delivery_days", "_regime", "_received_at",
 ] if c in df.columns]
 latest = df[display_cols].sort_values("_received_at", ascending=False).head(20).reset_index(drop=True)
 latest.index += 1

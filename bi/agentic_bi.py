@@ -82,8 +82,16 @@ if "chat_history" not in st.session_state: st.session_state["chat_history"] = []
 # ── Sidebar ───────────────────────────────────────────────────────────────────
 
 with st.sidebar:
-    st.title("🤖 Olist Agentic BI")
-    st.caption(f"Model: `{active_model_label()}` via {AI_PROVIDER}")
+    st.title("Olist Agentic BI")
+    st.caption(f"LLM: `{active_model_label()}`")
+    st.divider()
+    with st.expander("Stack", expanded=False):
+        st.caption("**Storage** — Cloudflare R2 (S3-compatible)")
+        st.caption("**Format** — Apache Iceberg (ACID, time-travel)")
+        st.caption("**Streaming** — Redpanda → Bronze Iceberg")
+        st.caption("**Transform** — PySpark local[2] → Silver / Gold")
+        st.caption("**Query** — PyIceberg → DuckDB in-memory")
+        st.caption(f"**LLM** — Claude API (`{active_model_label()}`)")
     st.divider()
 
     # KPI cards
