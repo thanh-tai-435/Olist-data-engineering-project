@@ -41,7 +41,7 @@ DATA_DIR     = os.environ.get("DATA_DIR", "/app/data/raw/ecommerce")
 # Chế độ chạy:
 #   rate   (mặc định) – gửi đúng RATE events/giây, lặp vô hạn qua dataset
 #   replay             – nén thời gian thực theo SPEED_FACTOR
-MODE         = os.environ.get("MODE", "rate")
+MODE         = os.environ.get("MODE", "replay")
 RATE         = float(os.environ.get("RATE", "2"))          # events/giây (MODE=rate)
 SPEED_FACTOR = int(os.environ.get("SPEED_FACTOR", "86400")) # (MODE=replay)
 MAX_EVENTS   = int(os.environ.get("MAX_EVENTS", "0"))        # 0 = vô hạn

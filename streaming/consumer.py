@@ -36,6 +36,13 @@ logging.basicConfig(
 )
 log = logging.getLogger(__name__)
 
+try:
+    from river_model import DeliveryDelayPredictor, SAVE_EVERY
+    _RIVER_ENABLED = True
+except ImportError:
+    _RIVER_ENABLED = False
+    log.warning("river not installed — online learning disabled. pip install river")
+
 BROKERS        = os.environ.get("REDPANDA_BROKERS", "redpanda:9092")
 ICEBERG_URI    = os.environ.get("ICEBERG_REST_URI", "http://iceberg-rest:8181")
 S3_ENDPOINT    = os.environ["S3_ENDPOINT"]
@@ -167,6 +174,8 @@ def run() -> None:
     last_flush: dict[str, float] = {t: time.monotonic() for t in TOPIC_CONFIG}
     total_written = 0
 
+    river_model = DeliveryDelayPredictor.load() if _RIVER_ENABLED else None
+
     log.info("=== CONSUMER START ===")
     log.info("  Group:          %s", CONSUMER_GROUP)
     log.info("  Topics:         %s", ", ".join(TOPIC_CONFIG))
@@ -186,6 +195,10 @@ def run() -> None:
                                  topic, len(buffers[topic]), age)
                         written = flush_buffer(catalog, topic, buffers[topic])
                         total_written += written
+                        if river_model is not None and topic == "olist.orders":
+                            river_model.process_batch(buffers[topic])
+                            if river_model.n_seen % SAVE_EVERY < len(buffers[topic]):
+                                river_model.save()
                         try:
                             consumer.commit(asynchronous=False)
                         except KafkaException:
@@ -213,6 +226,10 @@ def run() -> None:
                 log.info("  [batch flush]   %s  (%d rows)", topic, len(buffers[topic]))
                 written = flush_buffer(catalog, topic, buffers[topic])
                 total_written += written
+                if river_model is not None and topic == "olist.orders":
+                    river_model.process_batch(buffers[topic])
+                    if river_model.n_seen % SAVE_EVERY < len(buffers[topic]):
+                        river_model.save()
                 consumer.commit(asynchronous=False)
                 buffers[topic].clear()
                 last_flush[topic] = time.monotonic()
@@ -222,6 +239,8 @@ def run() -> None:
         for topic, rows in buffers.items():
             if rows:
                 flush_buffer(catalog, topic, rows)
+        if river_model is not None:
+            river_model.save()
         consumer.commit(asynchronous=False)
         log.info("=== CONSUMER STOPPED  total written: %d rows ===", total_written)
     finally:

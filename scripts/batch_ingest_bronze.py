@@ -152,7 +152,12 @@ def ingest_table(
 
     if catalog.table_exists(full_name):
         tbl = catalog.load_table(full_name)
-        print(f"  Table exists -> appending.")
+        snap = tbl.current_snapshot()
+        if snap is not None:
+            row_count = snap.summary.get("total-records", "?")
+            print(f"  [SKIP] Table already has {row_count} rows. Use --overwrite to re-ingest.")
+            return 0
+        print(f"  Table exists (empty) -> appending.")
     else:
         tbl = catalog.create_table(
             identifier=full_name,
