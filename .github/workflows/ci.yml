@@ -1,0 +1,85 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  # ──────────────────────────────────────────────────────────
+  # JOB 1: Lint — ruff check + format
+  # ──────────────────────────────────────────────────────────
+  lint:
+    name: Lint (ruff)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install ruff
+        run: pip install ruff==0.4.4
+
+      - name: ruff check
+        run: ruff check .
+
+      - name: ruff format check
+        run: ruff format --check .
+
+  # ──────────────────────────────────────────────────────────
+  # JOB 2: Syntax check — compile all .py without running them
+  # Catches import errors / syntax errors without needing deps
+  # ──────────────────────────────────────────────────────────
+  syntax:
+    name: Syntax check (py_compile)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Compile all Python files
+        run: |
+          find . -name "*.py" \
+            -not -path "./.git/*" \
+            -not -path "./ml/notebooks/*" \
+            | sort \
+            | xargs python -m py_compile \
+            && echo "All files OK"
+
+  # ──────────────────────────────────────────────────────────
+  # JOB 3: Validate docker-compose
+  # ──────────────────────────────────────────────────────────
+  validate-compose:
+    name: Validate docker-compose.yml
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: docker compose config
+        run: docker compose config --quiet
+
+  # ──────────────────────────────────────────────────────────
+  # JOB 4: Unit tests (no infrastructure required)
+  # Tests: soda YAML structure, compose services, pipeline logic
+  # ──────────────────────────────────────────────────────────
+  unit-tests:
+    name: Unit tests (pytest)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install test dependencies
+        run: pip install pytest pyyaml
+
+      - name: Run tests
+        run: pytest tests/ -v --tb=short

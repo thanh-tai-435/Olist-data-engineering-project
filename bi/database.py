@@ -54,6 +54,22 @@ _COL_DESC: dict[str, str] = {
     "days_since_last_order": "Days elapsed since the last purchase (INTEGER)",
     "is_churned":           "1 = no order in last 90 days (churned), 0 = still active",
     "is_repeat_customer":   "1 = placed more than 1 order, 0 = one-time buyer",
+
+    # review_sentiment ────────────────────────────────────────────────────────
+    "review_id":                   "Unique review identifier",
+    "review_text":                 "Raw review comment text (Portuguese)",
+    "overall_sentiment":           "Overall sentiment: negative | neutral | positive",
+    "overall_confidence":          "Model confidence score for overall sentiment (0.0–1.0)",
+    "product_quality_sentiment":   "Sentiment about product quality: negative | neutral | positive",
+    "product_quality_confidence":  "Confidence for product_quality prediction (0.0–1.0)",
+    "delivery_speed_sentiment":    "Sentiment about delivery speed: negative | neutral | positive",
+    "delivery_speed_confidence":   "Confidence for delivery_speed prediction (0.0–1.0)",
+    "seller_service_sentiment":    "Sentiment about seller service: negative | neutral | positive",
+    "seller_service_confidence":   "Confidence for seller_service prediction (0.0–1.0)",
+    "price_value_sentiment":       "Sentiment about price/value: negative | neutral | positive",
+    "price_value_confidence":      "Confidence for price_value prediction (0.0–1.0)",
+    "model_version":               "ML model version used for scoring (e.g. v1)",
+    "scored_at":                   "Timestamp when the review was scored (UTC)",
 }
 
 

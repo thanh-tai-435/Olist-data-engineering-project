@@ -52,8 +52,6 @@
         "ms-python.python",
         "ms-python.vscode-pylance",
         "ms-azuretools.vscode-docker",
-        "dbt-labs.dbt-power-user",
-        "innoverio.vscode-dbt-power-user",
         "redhat.vscode-yaml",
         "ms-toolsai.jupyter"
       ],

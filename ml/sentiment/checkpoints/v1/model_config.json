@@ -1,0 +1,10 @@
+{
+  "pretrained": "neuralmind/bert-large-portuguese-cased",
+  "num_labels": 3,
+  "aspects": [
+    "product_quality",
+    "delivery_speed",
+    "seller_service",
+    "price_value"
+  ]
+}

@@ -1,0 +1,66 @@
+# Gold layer — business-ready fact & dimension tables
+# Checks: completeness, business rules, ML-readiness
+
+checks for fct_orders:
+  - row_count > 90000
+  - missing_count(order_id) = 0
+  - duplicate_count(order_id) = 0
+  - missing_count(customer_id) = 0
+  - missing_count(purchased_at) = 0
+  # Numeric fields must be fully populated after gold coalesce
+  - missing_count(order_revenue) = 0
+  - missing_count(order_freight) = 0
+  - missing_count(item_count) = 0
+  - missing_count(total_weight_g) = 0
+  - missing_count(max_installments) = 0
+  # review_score NULL = no review (structural: ~800 of 99k orders)
+  - missing_count(review_score) < 1500:
+      warn: when between 700 and 1500
+  # approved_at NULL = pending/cancelled orders (structural)
+  - missing_count(approved_at) < 500
+  # shipped_at NULL = not shipped yet / cancelled (structural: ~1800 of 99k)
+  - missing_count(shipped_at) < 3000
+  # Business rules
+  - min(order_revenue) >= 0
+  - min(order_freight) >= 0
+  - min(item_count) >= 0
+  - min(total_weight_g) >= 0
+  - min(max_installments) >= 1
+  - failed rows:
+      name: invalid_delivery_status
+      fail condition: delivery_status NOT IN ('late', 'early', 'on_time', 'unknown')
+
+checks for fct_funnel:
+  - row_count > 0
+  - missing_count(mql_id) = 0
+  - duplicate_count(mql_id) = 0
+  - missing_count(first_contact_date) = 0
+  - missing_count(origin) = 0
+
+checks for dim_sellers:
+  - row_count > 0
+  - missing_count(seller_id) = 0
+  - duplicate_count(seller_id) = 0
+  - min(total_orders) >= 0
+  - min(total_revenue) >= 0
+
+checks for dim_customers:
+  - row_count > 0
+  - missing_count(customer_unique_id) = 0
+  - duplicate_count(customer_unique_id) = 0
+  - min(total_orders) >= 0
+  - min(total_spend) >= 0
+
+checks for review_sentiment:
+  - row_count > 0
+  - missing_count(order_id) = 0
+  - duplicate_count(order_id) = 0
+  - missing_count(overall_sentiment) = 0
+  - missing_count(overall_confidence) = 0
+  - min(overall_confidence) >= 0
+  - max(overall_confidence) <= 1
+  - failed rows:
+      name: invalid_overall_sentiment
+      fail condition: overall_sentiment NOT IN ('negative', 'neutral', 'positive')
+  - missing_count(model_version) = 0
+  - missing_count(scored_at) = 0

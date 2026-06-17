@@ -42,7 +42,7 @@ def ensure_namespace():
 
 
 @task(name="ingest-csv-to-iceberg", retries=1, retry_delay_seconds=10)
-def ingest_csv(table_name: str, csv_path: Path, timestamp_cols: list[str] = None) -> dict:
+def ingest_csv(table_name: str, csv_path: Path, timestamp_cols: list[str] = None, overwrite: bool = False) -> dict:
     log = get_run_logger()
     full_table = f"bronze.{table_name}"
 
@@ -63,11 +63,17 @@ def ingest_csv(table_name: str, csv_path: Path, timestamp_cols: list[str] = None
 
     df["_ingested_at"] = INGESTED_AT
     df["_source_file"] = csv_path.name
+    df["_source_path"] = str(csv_path)
     arrow_table = pa.Table.from_pandas(df, preserve_index=False)
 
     catalog = get_catalog()
+
     try:
         tbl = catalog.load_table(full_table)
+        if overwrite:
+            catalog.drop_table(full_table)
+            log.info(f"  Dropped {full_table} (overwrite=True)")
+            raise NoSuchTableError(full_table)
     except NoSuchTableError:
         tbl = catalog.create_table(
             identifier=full_table,
@@ -85,10 +91,10 @@ def ingest_csv(table_name: str, csv_path: Path, timestamp_cols: list[str] = None
     description="Ingest all Olist CSV files into Bronze Iceberg tables.",
     log_prints=True,
 )
-def bronze_ingestion_flow(data_root: str | None = None):
+def bronze_ingestion_flow(data_root: str | None = None, overwrite: bool = False):
     root = Path(data_root) if data_root else DATA_ROOT
     log = get_run_logger()
-    log.info(f"Data root: {root}")
+    log.info(f"Data root: {root}  overwrite={overwrite}")
 
     ensure_namespace()
 
@@ -112,10 +118,20 @@ def bronze_ingestion_flow(data_root: str | None = None):
          ["won_date"]),
     ]
 
-    results = []
-    for table_name, csv_path, ts_cols in datasets:
-        result = ingest_csv(table_name, csv_path, ts_cols)
-        results.append(result)
+    # Submit all tables in parallel — Prefect runs them concurrently
+    futures = [
+        ingest_csv.submit(table_name, csv_path, ts_cols, overwrite)
+        for table_name, csv_path, ts_cols in datasets
+    ]
+    results, fail_count = [], 0
+    for (table_name, *_), fut in zip(datasets, futures):
+        try:
+            results.append(fut.result())
+        except Exception as e:
+            log.error("Ingestion failed for %s: %s", table_name, e)
+            fail_count += 1
+    if fail_count:
+        raise RuntimeError(f"{fail_count}/{len(datasets)} table ingestions failed.")
 
     # Tạo summary artifact hiện trên Prefect UI
     create_table_artifact(

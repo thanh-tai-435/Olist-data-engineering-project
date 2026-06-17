@@ -37,7 +37,7 @@ GROQ_KEY         = _get("GROQ_API_KEY")
 GROQ_MODEL       = _get("GROQ_MODEL", "llama-3.3-70b-versatile")
 
 # ── App constants ──────────────────────────────────────────────────────────────
-GOLD_TABLES  = ["fct_orders", "fct_funnel", "dim_sellers", "dim_customers"]
+GOLD_TABLES  = ["fct_orders", "fct_funnel", "dim_sellers", "dim_customers", "review_sentiment"]
 MAX_ROWS     = 1_000
 MAX_HISTORY  = 10
 MAX_RETRIES  = 3

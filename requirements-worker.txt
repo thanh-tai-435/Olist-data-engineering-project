@@ -19,6 +19,9 @@ river==0.21.2
 # Quality
 soda-core-duckdb==3.3.0
 
+# Data Lineage (OpenLineage client — emits events to Marquez)
+openlineage-python==1.17.0
+
 # Utilities
 boto3==1.34.0
 requests==2.31.0

@@ -14,3 +14,4 @@ RUN pip install --no-cache-dir -r requirements-worker.txt
 
 # Copy flow code (ingestion/ and dbt/ are mounted via volumes in compose)
 COPY prefect/flows ./flows
+COPY quality ./quality

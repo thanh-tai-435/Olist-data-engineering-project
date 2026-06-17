@@ -1,0 +1,57 @@
+# Silver layer — cleaned, typed, deduped
+# Checks: primary keys, type ranges, join completeness
+
+checks for stg_orders:
+  - row_count > 0
+  - missing_count(order_id) = 0
+  - duplicate_count(order_id) = 0
+  - missing_count(customer_id) = 0
+  - missing_count(order_status) = 0
+  - missing_count(purchased_at) = 0
+  - min(actual_delivery_days) >= 0
+  - max(actual_delivery_days) < 365
+
+checks for stg_order_items:
+  - row_count > 0
+  - missing_count(order_id) = 0
+  - missing_count(product_id) = 0
+  - missing_count(seller_id) = 0
+  - min(price) >= 0
+  - min(freight_value) >= 0
+
+checks for stg_order_payments:
+  - row_count > 0
+  - missing_count(order_id) = 0
+  - duplicate_count(order_id) = 0
+  - min(payment_value) >= 0
+  - min(max_installments) >= 1
+
+checks for stg_order_reviews:
+  - row_count > 0
+  - missing_count(order_id) = 0
+  - duplicate_count(order_id) = 0
+  - min(review_score) >= 1
+  - max(review_score) <= 5
+
+checks for stg_products:
+  - row_count > 0
+  - missing_count(product_id) = 0
+  - duplicate_count(product_id) = 0
+
+checks for stg_sellers:
+  - row_count > 0
+  - missing_count(seller_id) = 0
+  - duplicate_count(seller_id) = 0
+
+checks for stg_customers:
+  - row_count > 0
+  - missing_count(customer_id) = 0
+  - duplicate_count(customer_id) = 0
+
+checks for int_orders_enriched:
+  - row_count > 0
+  - missing_count(order_id) = 0
+  - duplicate_count(order_id) = 0
+  - min(order_revenue) >= 0
+  - min(item_count) >= 0
+  - min(order_freight) >= 0

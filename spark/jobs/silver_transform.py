@@ -25,19 +25,21 @@ logging.basicConfig(
 log = logging.getLogger(__name__)
 
 # ── Config từ environment variables ──────────────────────────────────────────
-SPARK_MASTER  = os.environ.get("SPARK_MASTER", "local[2]")
-ICEBERG_URI   = os.environ.get("ICEBERG_REST_URI", "http://iceberg-rest:8181")
-S3_ENDPOINT   = os.environ["S3_ENDPOINT"]
-S3_ACCESS_KEY = os.environ["S3_ACCESS_KEY"]
-S3_SECRET_KEY = os.environ["S3_SECRET_KEY"]
-BUCKET        = "retail-data-lake"
-JARS_DIR      = os.environ.get("SPARK_JARS_DIR", "/app/spark-jars")
+SPARK_MASTER      = os.environ.get("SPARK_MASTER", "local[2]")
+ICEBERG_URI       = os.environ.get("ICEBERG_REST_URI", "http://iceberg-rest:8181")
+S3_ENDPOINT       = os.environ["S3_ENDPOINT"]
+S3_ACCESS_KEY     = os.environ["S3_ACCESS_KEY"]
+S3_SECRET_KEY     = os.environ["S3_SECRET_KEY"]
+BUCKET            = "retail-data-lake"
+JARS_DIR          = os.environ.get("SPARK_JARS_DIR", "/app/spark-jars")
+OPENLINEAGE_URL   = os.environ.get("OPENLINEAGE_URL", "http://marquez:5002")
 
 _JARS = ",".join([
     f"{JARS_DIR}/iceberg-spark-runtime-3.5_2.12-1.5.0.jar",
     f"{JARS_DIR}/iceberg-aws-bundle-1.5.0.jar",   # AWS SDK v2 cho S3FileIO
     f"{JARS_DIR}/hadoop-aws-3.3.4.jar",
     f"{JARS_DIR}/aws-java-sdk-bundle-1.12.262.jar",
+    f"{JARS_DIR}/openlineage-spark_2.12-1.17.0.jar",
 ])
 
 
@@ -77,6 +79,13 @@ def get_spark(app_name: str = "olist-silver-transform") -> SparkSession:
         # Tune cho dataset nhỏ (~200 MB)
         .config("spark.sql.shuffle.partitions", "8")
         .config("spark.default.parallelism",    "4")
+        # OpenLineage: emit Bronze→Silver lineage events to Marquez
+        # Spark continues normally if Marquez is offline (graceful failure)
+        .config("spark.extraListeners",
+                "io.openlineage.spark.agent.OpenLineageSparkListener")
+        .config("spark.openlineage.transport.type", "http")
+        .config("spark.openlineage.transport.url",  OPENLINEAGE_URL)
+        .config("spark.openlineage.namespace",      "olist")
         .getOrCreate()
     )
 
@@ -158,7 +167,7 @@ def transform_stg_order_payments(spark: SparkSession) -> None:
                 F.when(F.col("payment_sequential").cast("int") == 1,
                        F.col("payment_type"))
             ).alias("payment_type"),
-            F.max(F.col("payment_installments").cast("int")).alias("max_installments"),
+            F.greatest(F.max(F.col("payment_installments").cast("int")), F.lit(1)).alias("max_installments"),
             F.count("*").alias("payment_count"),
         )
     )

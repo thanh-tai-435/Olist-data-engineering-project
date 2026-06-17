@@ -20,6 +20,10 @@ GRANT ALL PRIVILEGES ON DATABASE mlflow TO olist;
 CREATE DATABASE coder;
 GRANT ALL PRIVILEGES ON DATABASE coder TO olist;
 
+-- Marquez data lineage (OpenLineage reference implementation)
+CREATE DATABASE marquez;
+GRANT ALL PRIVILEGES ON DATABASE marquez TO olist;
+
 -- External sample data (used by Trino postgres catalog for federation demos)
 CREATE DATABASE olist_meta;
 GRANT ALL PRIVILEGES ON DATABASE olist_meta TO olist;

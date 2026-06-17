@@ -20,19 +20,21 @@ logging.basicConfig(
 )
 log = logging.getLogger(__name__)
 
-SPARK_MASTER  = os.environ.get("SPARK_MASTER", "local[2]")
-ICEBERG_URI   = os.environ.get("ICEBERG_REST_URI", "http://iceberg-rest:8181")
-S3_ENDPOINT   = os.environ["S3_ENDPOINT"]
-S3_ACCESS_KEY = os.environ["S3_ACCESS_KEY"]
-S3_SECRET_KEY = os.environ["S3_SECRET_KEY"]
-BUCKET        = "retail-data-lake"
-JARS_DIR      = os.environ.get("SPARK_JARS_DIR", "/app/spark-jars")
+SPARK_MASTER      = os.environ.get("SPARK_MASTER", "local[2]")
+ICEBERG_URI       = os.environ.get("ICEBERG_REST_URI", "http://iceberg-rest:8181")
+S3_ENDPOINT       = os.environ["S3_ENDPOINT"]
+S3_ACCESS_KEY     = os.environ["S3_ACCESS_KEY"]
+S3_SECRET_KEY     = os.environ["S3_SECRET_KEY"]
+BUCKET            = "retail-data-lake"
+JARS_DIR          = os.environ.get("SPARK_JARS_DIR", "/app/spark-jars")
+OPENLINEAGE_URL   = os.environ.get("OPENLINEAGE_URL", "http://marquez:5002")
 
 _JARS = ",".join([
     f"{JARS_DIR}/iceberg-spark-runtime-3.5_2.12-1.5.0.jar",
     f"{JARS_DIR}/iceberg-aws-bundle-1.5.0.jar",   # AWS SDK v2 cho S3FileIO
     f"{JARS_DIR}/hadoop-aws-3.3.4.jar",
     f"{JARS_DIR}/aws-java-sdk-bundle-1.12.262.jar",
+    f"{JARS_DIR}/openlineage-spark_2.12-1.17.0.jar",
 ])
 
 
@@ -66,6 +68,12 @@ def get_spark(app_name: str = "olist-gold-transform") -> SparkSession:
                 "org.apache.hadoop.fs.s3a.SimpleAWSCredentialsProvider")
         .config("spark.sql.shuffle.partitions", "8")
         .config("spark.default.parallelism",    "4")
+        # OpenLineage: emit Silver→Gold lineage events to Marquez
+        .config("spark.extraListeners",
+                "io.openlineage.spark.agent.OpenLineageSparkListener")
+        .config("spark.openlineage.transport.type", "http")
+        .config("spark.openlineage.transport.url",  OPENLINEAGE_URL)
+        .config("spark.openlineage.namespace",      "olist")
         .getOrCreate()
     )
 
@@ -111,10 +119,10 @@ def transform_fct_orders(spark: SparkSession) -> None:
             F.coalesce(F.col("order_freight"),  F.lit(0.0)).alias("order_freight"),
             F.coalesce(F.col("item_count"),     F.lit(0)).alias("item_count"),
             F.coalesce(F.col("payment_value"),  F.lit(0.0)).alias("payment_value"),
-            F.coalesce(F.col("payment_type"),   F.lit("unknown")).alias("payment_type"),
-            "max_installments",
-            "review_score",
-            "total_weight_g",
+            F.coalesce(F.col("payment_type"),      F.lit("unknown")).alias("payment_type"),
+            F.coalesce(F.col("max_installments"), F.lit(1)).alias("max_installments"),
+            "review_score",   # NULL = no review — giữ nguyên, meaningful
+            F.coalesce(F.col("total_weight_g"),   F.lit(0.0)).alias("total_weight_g"),
             # Delivery SLA label
             F.when(F.col("delivery_delay_days") > 0,  "late")
              .when(F.col("delivery_delay_days") < 0,  "early")

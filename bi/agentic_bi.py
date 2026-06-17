@@ -21,25 +21,69 @@ st.set_page_config(
 
 st.markdown("""
 <style>
-  .stChatMessage { border-radius:10px; }
   div[data-testid="metric-container"] {
     background:#1e1e2e; border-radius:10px; padding:12px;
   }
-  .intent-badge {
-    display:inline-block; font-size:0.72rem; font-weight:600;
-    padding:2px 8px; border-radius:12px; margin-bottom:6px;
+  .insight-box {
+    background: #1e293b;
+    border-left: 3px solid #3b82f6;
+    border-radius: 6px;
+    padding: 12px 16px;
+    margin: 8px 0 12px 0;
+    font-size: 0.95rem;
+    line-height: 1.6;
+    color: #e2e8f0;
   }
-  .badge-data    { background:#1e3a5f; color:#60a5fa; }
-  .badge-follow  { background:#1e3a2f; color:#34d399; }
-  .badge-small   { background:#2d1e3a; color:#c084fc; }
+  .intent-tag {
+    font-size: 0.7rem; font-weight: 700; letter-spacing: 0.05em;
+    padding: 2px 8px; border-radius: 4px; margin-bottom: 8px;
+    display: inline-block;
+  }
+  .tag-data   { background:#1e3a5f; color:#93c5fd; }
+  .tag-follow { background:#14532d; color:#86efac; }
+  .tag-small  { background:#3b0764; color:#d8b4fe; }
 </style>
 """, unsafe_allow_html=True)
 
-_INTENT_BADGE = {
-    "DATA_QUERY": '<span class="intent-badge badge-data">📊 Data Query</span>',
-    "FOLLOWUP":   '<span class="intent-badge badge-follow">🔗 Follow-up</span>',
-    "SMALLTALK":  '<span class="intent-badge badge-small">💬 Smalltalk</span>',
+_INTENT_TAG = {
+    "DATA_QUERY": '<span class="intent-tag tag-data">DATA QUERY</span>',
+    "FOLLOWUP":   '<span class="intent-tag tag-follow">FOLLOW-UP</span>',
+    "SMALLTALK":  '<span class="intent-tag tag-small">SMALLTALK</span>',
 }
+
+
+def _render_assistant(msg: dict) -> None:
+    """Render một assistant message nhất quán."""
+    intent = msg.get("intent", "DATA_QUERY")
+    st.markdown(_INTENT_TAG.get(intent, ""), unsafe_allow_html=True)
+
+    # Text (smalltalk / followup)
+    if msg.get("text"):
+        st.markdown(msg["text"])
+
+    # Insight summary
+    if msg.get("summary"):
+        st.markdown(
+            f'<div class="insight-box">{msg["summary"]}</div>',
+            unsafe_allow_html=True,
+        )
+
+    # SQL expander
+    if msg.get("sql"):
+        with st.expander("SQL", expanded=False):
+            st.code(msg["sql"], language="sql")
+
+    # Data + chart
+    df_s = msg.get("result_df")
+    if df_s is not None and not df_s.empty:
+        with st.expander(f"Dữ liệu — {len(df_s):,} dòng", expanded=False):
+            st.dataframe(df_s, use_container_width=True, hide_index=True)
+        render_chart(df_s, msg.get("chart_type", "none"),
+                     question=msg.get("question", ""),
+                     llm_hint=msg.get("chart_type", "none"))
+
+    if msg.get("error"):
+        st.error(msg["error"])
 
 # ── API key check ─────────────────────────────────────────────────────────────
 
@@ -120,6 +164,9 @@ with st.sidebar:
         "Phân tích churn: bao nhiêu % khách hàng là churned?",
         "So sánh doanh thu theo phương thức thanh toán?",
         "Tỷ lệ chuyển đổi lead theo kênh marketing?",
+        "Tỷ lệ sentiment tích cực / tiêu cực của review?",
+        "Seller nào có nhiều review delivery_speed negative nhất?",
+        "So sánh overall_sentiment theo tháng?",
     ]
     for q in SAMPLES:
         if st.button(q, use_container_width=True, key=f"s_{hash(q)}"):
@@ -141,34 +188,9 @@ st.caption("Đặt câu hỏi về dữ liệu Olist — AI phân tích intent, 
 for msg in st.session_state["messages"]:
     with st.chat_message(msg["role"]):
         if msg["role"] == "user":
-            st.write(msg["content"])
+            st.markdown(msg["content"])
         else:
-            intent = msg.get("intent", "DATA_QUERY")
-            st.markdown(_INTENT_BADGE.get(intent, ""), unsafe_allow_html=True)
-
-            if msg.get("text"):                    # SMALLTALK or FOLLOWUP
-                st.write(msg["text"])
-
-            if msg.get("summary"):                 # DATA_QUERY — insight first
-                st.info(msg["summary"])
-
-            if msg.get("explanation") and not msg.get("summary"):
-                st.write(msg["explanation"])
-
-            if msg.get("sql"):
-                with st.expander("🔍 SQL được sinh", expanded=False):
-                    st.code(msg["sql"], language="sql")
-
-            df_s = msg.get("result_df")
-            if df_s is not None and not df_s.empty:
-                with st.expander(f"📋 Dữ liệu ({len(df_s)} dòng)", expanded=False):
-                    st.dataframe(df_s, use_container_width=True, height=220)
-                render_chart(df_s, msg.get("chart_type","none"),
-                             question=msg.get("question",""),
-                             llm_hint=msg.get("chart_type","none"))
-
-            if msg.get("error"):
-                st.error(msg["error"])
+            _render_assistant(msg)
 
 # ── Chat input ─────────────────────────────────────────────────────────────────
 
@@ -201,17 +223,15 @@ with st.chat_message("assistant"):
 
     # 2. Classify intent
     intent = classify_intent(user_input, st.session_state["chat_history"])
-    st.markdown(_INTENT_BADGE.get(intent, ""), unsafe_allow_html=True)
 
     # 3. Run agent with live progress
     with st.status("Đang xử lý...", expanded=True) as status:
         if intent == "SMALLTALK":
-            status.write("💬 Câu chuyện thường...")
+            status.write("💬 Đang trả lời...")
         elif intent == "FOLLOWUP":
-            status.write("🔗 Phân tích follow-up từ lịch sử...")
+            status.write("🔗 Phân tích follow-up...")
         else:
-            status.write("🔍 Phân tích câu hỏi...")
-            status.write("⚙️ Sinh SQL...")
+            status.write("🔍 Phân tích câu hỏi và sinh SQL...")
 
         res = run(
             intent=intent,
@@ -220,35 +240,20 @@ with st.chat_message("assistant"):
             schema=schema_ctx,
             con=con,
         )
-
-        if res.get("summary"):
-            status.write("📝 Tóm tắt insight...")
-
         status.update(label="✅ Hoàn thành", state="complete", expanded=False)
 
     # 4. Render result
-    if res.get("text"):
-        st.write(res["text"])
-
-    if res.get("summary"):
-        st.info(res["summary"])
-
-    if res.get("explanation") and not res.get("summary"):
-        st.write(res["explanation"])
-
-    if res.get("sql"):
-        with st.expander("🔍 SQL được sinh", expanded=False):
-            st.code(res["sql"], language="sql")
-
     df_res = res.get("result_df")
-    if df_res is not None and not df_res.empty:
-        with st.expander(f"📋 Dữ liệu ({len(df_res)} dòng)", expanded=False):
-            st.dataframe(df_res, use_container_width=True, height=220)
-        render_chart(df_res, res.get("chart_type","none"),
-                     question=user_input, llm_hint=res.get("chart_type","none"))
-
-    if res.get("error"):
-        st.error(res["error"])
+    _render_assistant({
+        "intent":     intent,
+        "text":       res.get("text"),
+        "summary":    res.get("summary"),
+        "sql":        res.get("sql"),
+        "chart_type": res.get("chart_type", "none"),
+        "result_df":  df_res,
+        "error":      res.get("error"),
+        "question":   user_input,
+    })
 
 # 5. Update conversation history
 st.session_state["chat_history"].append({"role": "user", "content": user_input})

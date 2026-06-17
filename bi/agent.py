@@ -32,6 +32,11 @@ QUY TẮC SQL:
 - Group theo tháng: strftime(purchased_at, '%Y-%m') hoặc date_trunc('month', col).
 - Explanation bằng tiếng Việt, ngắn gọn.
 
+QUAN TRỌNG — SENTIMENT:
+- Khi câu hỏi liên quan đến sentiment/cảm xúc/đánh giá (positive/negative/neutral), LUÔN dùng bảng `review_sentiment` (cột overall_sentiment, product_quality_sentiment, delivery_speed_sentiment, seller_service_sentiment, price_value_sentiment).
+- KHÔNG dùng review_score từ fct_orders để suy ra sentiment — đó là số sao, không phải kết quả model ABSA.
+- Join: review_sentiment.order_id = fct_orders.order_id
+
 OUTPUT — chỉ JSON thuần, không markdown:
 {{"sql": "SELECT ...", "explanation": "...", "chart_type": "bar|line|pie|scatter|none"}}
 
@@ -63,6 +68,15 @@ A: {{"sql": "SELECT is_churned, COUNT(*) AS customers, ROUND(COUNT(*)*100.0/SUM(
 
 Q: Tỷ lệ giao hàng trễ theo bang?
 A: {{"sql": "SELECT customer_state, COUNT(*) AS total, SUM(CASE WHEN delivery_status='late' THEN 1 ELSE 0 END) AS late_orders, ROUND(SUM(CASE WHEN delivery_status='late' THEN 1 ELSE 0 END)*100.0/COUNT(*),2) AS late_pct FROM fct_orders GROUP BY customer_state ORDER BY late_pct DESC LIMIT 15", "explanation": "Tỷ lệ % đơn hàng giao trễ theo từng bang.", "chart_type": "bar"}}
+
+Q: So sánh doanh thu positive và negative theo tháng 2017?
+A: {{"sql": "SELECT strftime(o.purchased_at, '%Y-%m') AS month, ROUND(SUM(CASE WHEN r.overall_sentiment='positive' THEN o.payment_value ELSE 0 END),2) AS pos_revenue_brl, ROUND(SUM(CASE WHEN r.overall_sentiment='negative' THEN o.payment_value ELSE 0 END),2) AS neg_revenue_brl FROM review_sentiment r JOIN fct_orders o ON r.order_id = o.order_id WHERE o.purchased_at >= '2017-01-01' AND o.purchased_at < '2018-01-01' GROUP BY 1 ORDER BY 1", "explanation": "Doanh thu (BRL) từ đơn hàng có review positive vs negative theo tháng năm 2017, dựa trên kết quả mô hình ABSA.", "chart_type": "line"}}
+
+Q: Tỷ lệ sentiment của review?
+A: {{"sql": "SELECT overall_sentiment, COUNT(*) AS reviews, ROUND(COUNT(*)*100.0/SUM(COUNT(*)) OVER(),2) AS pct FROM review_sentiment GROUP BY overall_sentiment ORDER BY reviews DESC", "explanation": "Phân bố sentiment (positive/neutral/negative) từ mô hình ABSA trên toàn bộ reviews.", "chart_type": "pie"}}
+
+Q: Bang nào có delivery_speed negative nhiều nhất?
+A: {{"sql": "SELECT o.customer_state, COUNT(*) AS total, SUM(CASE WHEN r.delivery_speed_sentiment='negative' THEN 1 ELSE 0 END) AS neg_delivery, ROUND(SUM(CASE WHEN r.delivery_speed_sentiment='negative' THEN 1 ELSE 0 END)*100.0/COUNT(*),1) AS neg_pct FROM review_sentiment r JOIN fct_orders o ON r.order_id = o.order_id GROUP BY o.customer_state HAVING COUNT(*) >= 50 ORDER BY neg_pct DESC LIMIT 10", "explanation": "Top bang có tỷ lệ review delivery_speed negative cao nhất (theo mô hình ABSA).", "chart_type": "bar"}}
 """
 
 _SYSTEM_SMALLTALK = """\

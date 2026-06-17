@@ -1,0 +1,48 @@
+# Bronze layer — raw ingested data
+# Checks: row count, primary keys not null, no duplicates
+
+checks for ecommerce_orders:
+  - row_count > 0
+  - missing_count(order_id) = 0
+  - missing_count(customer_id) = 0
+  - duplicate_count(order_id) = 0
+  - missing_count(order_status) = 0
+  - missing_count(order_purchase_timestamp) = 0
+
+checks for ecommerce_order_items:
+  - row_count > 0
+  - missing_count(order_id) = 0
+  - missing_count(product_id) = 0
+  - missing_count(seller_id) = 0
+  - min(price) >= 0
+  - min(freight_value) >= 0
+
+checks for ecommerce_order_payments:
+  - row_count > 0
+  - missing_count(order_id) = 0
+  - missing_count(payment_type) = 0
+  - min(payment_value) >= 0
+  - min(payment_installments) >= 0
+
+checks for ecommerce_order_reviews:
+  - row_count > 0
+  - missing_count(order_id) = 0
+  - missing_count(review_id) = 0
+  - min(review_score) >= 1
+  - max(review_score) <= 5
+
+checks for ecommerce_products:
+  - row_count > 0
+  - missing_count(product_id) = 0
+  - duplicate_count(product_id) = 0
+
+checks for ecommerce_sellers:
+  - row_count > 0
+  - missing_count(seller_id) = 0
+  - duplicate_count(seller_id) = 0
+
+checks for ecommerce_customers:
+  - row_count > 0
+  - missing_count(customer_id) = 0
+  - duplicate_count(customer_id) = 0
+  - missing_count(customer_unique_id) = 0

@@ -1,0 +1,15 @@
+{
+  "versions": {
+    "1": {
+      "version": "1",
+      "run_id": "99010a40bc934a6e97a94d86b5f28147",
+      "checkpoint_dir": "C:\\DEProject\\Olist-data-engineering-project\\ml\\sentiment\\checkpoints\\v1",
+      "weights_path": "C:\\DEProject\\Olist-data-engineering-project\\ml\\sentiment\\checkpoints\\v1\\model.pt",
+      "config_path": "C:\\DEProject\\Olist-data-engineering-project\\ml\\sentiment\\checkpoints\\v1\\model_config.json",
+      "tokenizer_dir": "C:\\DEProject\\Olist-data-engineering-project\\ml\\sentiment\\checkpoints\\v1\\tokenizer",
+      "accuracy": 0.8677300613496932,
+      "stage": "production"
+    }
+  },
+  "production": "1"
+}

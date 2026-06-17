@@ -19,17 +19,16 @@ Enterprise-grade data lakehouse platform with Medallion Architecture (Bronze →
 **Ingestion**:
 - Batch: Python + pandas → Parquet → R2
 - Streaming: Python + confluent-kafka → Redpanda → Iceberg
-- Quality: Soda Core / Great Expectations
+- Quality: Soda Core
 
 **Medallion Layers**:
 - **Bronze**: Raw, append-only, immutable (PyIceberg writes)
-- **Silver**: Cleaned, typed, joined (dbt transforms via DuckDB/Spark)
-- **Gold**: Aggregated, partitioned, BI-ready (dbt marts)
+- **Silver**: Cleaned, typed, joined (PySpark `spark/jobs/silver_transform.py`)
+- **Gold**: Aggregated, partitioned, BI-ready (PySpark `spark/jobs/gold_transform.py`)
 
 **Processing**:
-- DuckDB (small/medium workloads, <1TB)
-- Apache Spark (large-scale, distributed, >1TB)
-- dbt (SQL transformation engine, incremental models)
+- Apache Spark (Silver/Gold transforms — `spark/jobs/`)
+- DuckDB (Soda Core quality checks, ad-hoc queries)
 
 **Query & ML**:
 - Trino/Presto (query federation across Iceberg + Postgres + CSV)
@@ -37,16 +36,18 @@ Enterprise-grade data lakehouse platform with Medallion Architecture (Bronze →
 
 **Orchestration**:
 - Prefect (primary: @flow/@task, Cloud UI, real-time monitoring)
-- Dagster (alternative: @asset dependencies, lineage)
 
 **Serving**:
-- Evidence / Metabase (historical BI)
 - Streamlit + Claude API (Agentic BI: NL → SQL)
 - Real-time dashboard (live orders + ML predictions)
 
+**Lineage**:
+- OpenLineage (Spark listener auto-emits Bronze→Silver→Gold events)
+- Marquez (lineage store + Web UI, `--profile lineage`)
+
 **DevOps**:
-- Docker Compose (containerization)
-- GitHub Actions (CI/CD: dbt test, lint SQL)
+- Docker Compose (containerization, profiles: core/spark/query/bi/lineage)
+- GitHub Actions (CI/CD: lint, syntax, compose validation, unit tests)
 
 ---
 
@@ -67,11 +68,11 @@ r2://olist-lakehouse/
 │   └── marketing/
 │       ├── leads/
 │       └── deals/
-├── silver/                    # dbt incremental merge
+├── silver/                    # PySpark incremental merge
 │   ├── stg_orders/
 │   ├── stg_sellers/
 │   └── int_orders_enriched/
-└── gold/                      # dbt marts, partitioned
+└── gold/                      # PySpark aggregation, partitioned
     ├── fct_orders/
     │   └── data/
     │       ├── order_date=2017-01/
@@ -96,10 +97,11 @@ r2://olist-lakehouse/
 - Kafka-compatible API (same Python code)
 - Lightweight (~500MB RAM vs Kafka's ~2GB)
 
-**Why both DuckDB and Spark?**
-- DuckDB: fast, embedded, perfect for <1TB (dbt default)
-- Spark: distributed, scale to PB (when needed)
-- Same Iceberg tables, different engines
+**Why PySpark over dbt?**
+- dbt removed — Silver/Gold transforms done entirely in PySpark
+- PySpark reads/writes Iceberg natively via `spark-iceberg` extension
+- Same engine handles both small and large-scale workloads
+- No extra toolchain (dbt CLI, profiles.yml, adapters) to maintain
 
 **Why Prefect over Dagster?**
 - Cleaner Python decorators (`@flow`, `@task`)
@@ -113,51 +115,19 @@ r2://olist-lakehouse/
 
 ---
 
-## dbt Project Structure
+## Spark Jobs Structure
 
 ```
-dbt/
-├── dbt_project.yml
-├── profiles.yml
-└── models/
-    ├── bronze/              # Optional: hvis dùng dbt cho ingestion
-    │   └── bronze_orders.sql
-    ├── silver/              # Cleaning & typing
-    │   ├── stg_orders.sql
-    │   ├── stg_sellers.sql
-    │   ├── stg_funnel.sql
-    │   └── intermediate/
-    │       ├── int_orders_enriched.sql
-    │       └── int_seller_performance.sql
-    └── gold/                # Business marts
-        ├── fct_orders.sql
-        ├── fct_funnel.sql
-        ├── dim_sellers.sql
-        └── metrics/
-            ├── revenue_by_month.sql
-            └── delivery_sla_compliance.sql
+spark/
+├── jobs/
+│   ├── silver_transform.py    # Bronze → Silver (staging + int_orders_enriched)
+│   └── gold_transform.py      # Silver → Gold (fct_orders, fct_funnel, dim_*)
+└── jars/
+    └── openlineage-spark_2.12-1.17.0.jar
 ```
 
-**dbt_project.yml config**:
-```yaml
-models:
-  olist:
-    bronze:
-      +materialized: incremental
-      +file_format: iceberg
-      +incremental_strategy: append
-    silver:
-      +materialized: incremental
-      +file_format: iceberg
-      +incremental_strategy: merge
-      +unique_key: id
-      intermediate:
-        +materialized: ephemeral
-    gold:
-      +materialized: table
-      +file_format: iceberg
-      +partition_by: ['order_date']
-```
+**silver_transform.py** runs with OpenLineage listener — auto-emits lineage to Marquez.  
+**gold_transform.py** same. Both submit via `prefect-worker` using `spark-submit` internally.
 
 ---
 
@@ -176,15 +146,15 @@ def ingest_to_bronze(dataset: str):
     table.append(df)
     return f"bronze.ecom.{dataset}"
 
-@task
+@task(retries=3)
 def transform_silver():
     import subprocess
-    subprocess.run(["dbt", "run", "--select", "silver.*"])
+    subprocess.run(["spark-submit", "spark/jobs/silver_transform.py"], check=True)
 
-@task
+@task(retries=3)
 def aggregate_gold():
     import subprocess
-    subprocess.run(["dbt", "run", "--select", "gold.*"])
+    subprocess.run(["spark-submit", "spark/jobs/gold_transform.py"], check=True)
 
 @flow(name="Medallion Daily")
 def medallion_pipeline():
@@ -252,23 +222,23 @@ producer.flush()
 1. **Delivery delay prediction**:
    - Features: `seller_state`, `customer_state`, `product_weight_g`, `freight_value`
    - Target: `actual_delivery_days - estimated_delivery_days`
-   - Model: RandomForest / XGBoost
+   - Model: XGBoost Regressor (`ml/training/train_delivery_model.py`)
 
 2. **Churn prediction**:
    - Features from `dim_customers`: `days_since_last_order`, `total_orders`, `avg_order_value`
    - Target: binary (will order again in next 90 days?)
+   - Model: XGBoost Classifier (`ml/training/train_churn_model.py`)
 
 3. **Lead scoring**:
    - Features from `fct_funnel`: `origin`, `business_segment`, `first_contact_date`
    - Target: probability of conversion (lead → deal)
+   - Model: XGBoost Classifier (`ml/training/train_lead_scoring.py`)
 
-**Serving API**:
+**Serving API** (`ml/serving/app.py` — FastAPI):
 ```bash
-mlflow models serve -m "models:/delivery-delay/Production" -p 5000
-
-curl -X POST http://localhost:5000/invocations \
+curl -X POST http://localhost:8000/predict/delivery-delay \
   -H 'Content-Type: application/json' \
-  -d '{"dataframe_records": [{"seller_state": "SP", ...}]}'
+  -d '{"seller_state": "SP", "customer_state": "RJ", ...}'
 ```
 
 ---
@@ -293,86 +263,97 @@ WHERE o.order_date >= DATE '2024-01-01'
 
 ```yaml
 services:
-  redpanda:           # Kafka-compatible broker
-  iceberg-rest:       # Iceberg REST catalog
-  spark-master:       # Spark distributed processing
-  spark-worker:       # Spark workers
-  trino:              # Query federation
-  prefect-server:     # Workflow orchestration
-  mlflow:             # ML lifecycle
-  # DuckDB embedded, no container needed
+  postgres:         # Iceberg catalog backend + Marquez DB
+  iceberg-rest:     # Iceberg REST catalog (tabulario)
+  redpanda:         # Kafka-compatible broker
+  prefect-server:   # Prefect orchestration API
+  prefect-worker:   # Executes flows (has Spark + Python deps)
+  mlflow:           # ML experiment tracking
+  ml-serving:       # FastAPI model serving
+  trino:            # Query federation [--profile query]
+  spark-master:     # Spark cluster [--profile spark]
+  spark-worker:     # Spark worker [--profile spark]
+  marquez:          # Lineage API [--profile lineage]
+  marquez-web:      # Lineage UI  [--profile lineage]
 ```
 
 ---
 
-## File Structure for Implementation
+## File Structure
 
 ```
 olist-lakehouse/
 ├── docker-compose.yml
 ├── .env.example
-├── README.md
+├── pyproject.toml           # ruff + pytest config
 ├── data/                    # gitignore
-├── ingestion/
-│   ├── batch_producer.py
-│   ├── streaming_producer.py
-│   ├── stream_consumer.py
-│   └── iceberg_setup.py
+├── streaming/
+│   ├── producer.py          # Redpanda event replay
+│   └── consumer.py          # Redpanda → Bronze Iceberg
 ├── quality/
-│   └── soda_checks.yml
-├── dbt/
-│   ├── dbt_project.yml
-│   ├── profiles.yml
-│   └── models/
-│       ├── bronze/
-│       ├── silver/
-│       └── gold/
-├── prefect/
-│   ├── flows/
-│   │   └── medallion_pipeline.py
-│   └── deployments/
+│   ├── soda_runner.py
+│   └── checks/
+│       ├── bronze_checks.yml
+│       ├── silver_checks.yml
+│       └── gold_checks.yml
 ├── spark/
 │   ├── jobs/
-│   │   └── silver_transform.py
+│   │   ├── silver_transform.py
+│   │   └── gold_transform.py
 │   └── jars/
+├── prefect/
+│   ├── flows/
+│   │   ├── bronze_ingestion.py
+│   │   ├── spark_transforms.py
+│   │   ├── full_pipeline.py
+│   │   ├── ml_training.py
+│   │   ├── quality_checks.py
+│   │   ├── sentiment_flow.py
+│   │   └── notifications.py
+│   ├── deployments/
+│   └── blocks/
 ├── trino/
 │   └── catalog/
 │       ├── iceberg.properties
 │       └── postgres.properties
 ├── ml/
-│   ├── train_delivery_model.py
-│   ├── train_churn_model.py
-│   └── serve_model.py
+│   ├── training/
+│   │   ├── train_delivery_model.py
+│   │   ├── train_churn_model.py
+│   │   ├── train_lead_scoring.py
+│   │   └── utils.py
+│   ├── serving/
+│   │   └── app.py
+│   └── sentiment/
 ├── bi/
 │   ├── agentic_bi.py
-│   └── realtime_dashboard.py
+│   └── pages/
+├── infra/
+│   ├── postgres/init.sql
+│   └── marquez/marquez.yml
+├── tests/
+│   ├── test_soda_checks.py
+│   ├── test_compose.py
+│   └── test_pipeline_logic.py
 └── .github/
     └── workflows/
-        └── dbt_test.yml
+        └── ci.yml
 ```
 
 ---
 
 ## Common Prompts for Claude Code
 
-**Setup & Infrastructure**:
-- "Create `iceberg_setup.py` to initialize Bronze tables with PyIceberg"
-- "Write `docker-compose.yml` with all services configured"
-- "Generate Trino catalog configs for Iceberg and Postgres"
-
 **Ingestion**:
-- "Implement `streaming_producer.py` to replay Olist CSV events into Redpanda"
-- "Write `stream_consumer.py` to consume from Redpanda and append to Bronze Iceberg"
+- "Implement `streaming/consumer.py` to consume from Redpanda and append to Bronze Iceberg"
 - "Create Soda Core YAML checks for Bronze data quality"
 
 **Transformation**:
-- "Generate dbt `stg_orders.sql` Silver model with cleaning logic"
-- "Write dbt `fct_orders.sql` Gold mart with joins and aggregations"
-- "Create PySpark job to transform Bronze → Silver for large datasets"
+- "Extend `spark/jobs/silver_transform.py` to add a new staging table"
+- "Add partitioning to `spark/jobs/gold_transform.py` fct_orders"
 
 **Orchestration**:
 - "Implement Prefect flow for Bronze → Silver → Gold pipeline"
-- "Create Dagster assets with lineage for comparison"
 - "Add Prefect sensors to trigger on Redpanda messages"
 
 **ML**:
@@ -383,7 +364,6 @@ olist-lakehouse/
 **BI**:
 - "Build Streamlit Agentic BI app with Claude API for SQL generation"
 - "Implement real-time dashboard showing live orders + ML predictions"
-- "Create Evidence.dev markdown reports for executive dashboard"
 
 ---
 
@@ -391,15 +371,14 @@ olist-lakehouse/
 
 **Iceberg**:
 - Bronze tables: append-only, never update/delete
-- Silver tables: incremental merge with unique_key
+- Silver tables: incremental merge (Spark `MERGE INTO`)
 - Gold tables: full refresh or incremental with partitioning
 - Always use PyIceberg for Python CRUD, never raw Parquet writes
 
-**dbt**:
-- Use `{{ source('bronze', 'ecom_orders') }}` to reference Bronze
-- Use `{{ ref('stg_orders') }}` for model dependencies
-- Test every model: `unique`, `not_null`, `relationships`
-- Document all columns in `schema.yml`
+**PySpark**:
+- SparkSession configured with Iceberg + S3A + OpenLineage listener
+- `local[2]` mode by default; `--profile spark` for cluster mode
+- Silver/Gold jobs submit via `spark-submit` inside `prefect-worker`
 
 **Prefect**:
 - Always use `@task(retries=3)` for idempotency
@@ -416,24 +395,23 @@ olist-lakehouse/
 ## Success Criteria
 
 ✅ Bronze layer receives both batch and streaming data with ACID guarantees  
-✅ dbt transforms Bronze → Silver → Gold with incremental strategies  
+✅ PySpark transforms Bronze → Silver → Gold with Iceberg MERGE  
 ✅ Prefect orchestrates entire pipeline with lineage visible in UI  
 ✅ Trino can join Iceberg + external sources in single query  
 ✅ MLflow tracks experiments and serves model via REST API  
 ✅ Agentic BI generates correct SQL from natural language  
+✅ OpenLineage captures Bronze→Silver→Gold data lineage in Marquez  
 ✅ All code runs in Docker Compose with `docker compose up`  
-✅ GitHub Actions CI/CD runs dbt test on every PR  
+✅ GitHub Actions CI/CD: lint + syntax + compose + unit tests on every PR  
 
 ---
 
 ## Next Steps
 
-1. Start with infrastructure: `iceberg_setup.py` + `docker-compose.yml`
-2. Implement ingestion: batch + streaming producers
-3. Build dbt models: Silver cleaning → Gold marts
-4. Add Prefect orchestration
-5. Integrate Trino for federation
-6. Train MLflow models
-7. Create BI dashboards
+1. Run `python ml/training/train_delivery_model.py` to train and register ML models
+2. Run `python ml/training/train_churn_model.py`
+3. Run `python ml/training/train_lead_scoring.py`
+4. Commit all untracked files (CI/CD, OpenLineage, quality fixes)
+5. Test full pipeline: `docker compose up` → trigger Prefect flow
 
-**All code should be production-ready**: error handling, logging, retries, tests, documentation.
+**All code should be production-ready**: error handling, logging, retries, tests.

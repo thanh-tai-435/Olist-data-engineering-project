@@ -329,6 +329,8 @@ services:
       # Spark: local[2] mặc định; đổi thành spark://spark-master:7077 khi dùng cluster
       SPARK_MASTER: ${SPARK_MASTER:-local[2]}
       SPARK_JARS_DIR: /app/spark-jars
+      # OpenLineage → Marquez (chỉ active khi --profile lineage; Spark tự skip nếu Marquez offline)
+      OPENLINEAGE_URL: http://marquez:5002
     depends_on:
       prefect-server:
         condition: service_healthy
@@ -339,6 +341,7 @@ services:
       - ./spark/jobs:/app/spark/jobs:ro
       - ./spark/jars:/app/spark-jars:ro
       - ./prefect/flows:/app/flows:ro
+      - ./quality:/app/quality:ro
       - ./streaming:/app/streaming:ro
       - ./data:/app/data:ro
       - ./ml:/app/ml:ro
@@ -471,7 +474,7 @@ services:
   # Docs:       CODER_SETUP.md
   #
   # Coder tạo workspace containers trên Docker host.
-  # Mỗi thành viên có workspace riêng, cài sẵn Python/dbt/Spark.
+  # Mỗi thành viên có workspace riêng, cài sẵn Python/PySpark/Prefect.
   # ──────────────────────────────────────────────────────────
 
   coder:
@@ -552,6 +555,53 @@ services:
     depends_on:
       coder:
         condition: service_healthy
+    networks:
+      - lakehouse
+
+  # ──────────────────────────────────────────────────────────
+  # DATA LINEAGE – MARQUEZ (OpenLineage reference implementation)
+  # Profile: --profile lineage
+  # API:  http://localhost:5002
+  # Web:  http://localhost:3000
+  # Tracks Bronze → Silver → Gold lineage emitted by Spark jobs
+  # ──────────────────────────────────────────────────────────
+
+  marquez:
+    image: marquezproject/marquez:latest
+    container_name: olist-marquez
+    restart: unless-stopped
+    profiles: ["lineage"]
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-olistpass}
+    volumes:
+      - ./infra/marquez/marquez.yml:/usr/src/app/marquez.yml:ro
+    ports:
+      - "5002:5002"   # Marquez API
+      - "5003:5003"   # Marquez admin
+    healthcheck:
+      test: ["CMD-SHELL", "curl -sf http://localhost:5003/healthcheck | grep -q '\"healthy\":true' || exit 1"]
+      interval: 15s
+      timeout: 10s
+      retries: 5
+      start_period: 60s
+    networks:
+      - lakehouse
+
+  marquez-web:
+    image: marquezproject/marquez-web:latest
+    container_name: olist-marquez-web
+    restart: unless-stopped
+    profiles: ["lineage"]
+    depends_on:
+      - marquez
+    environment:
+      MARQUEZ_HOST: marquez
+      MARQUEZ_PORT: 5002
+    ports:
+      - "3000:3000"   # Marquez UI  →  http://localhost:3000
     networks:
       - lakehouse
 

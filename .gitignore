@@ -14,10 +14,11 @@ __pycache__/
 .venv/
 *.egg-info/
 
-# dbt
-dbt/target/
-dbt/logs/
-dbt/.user.yml
+# ML model checkpoints (large binary files — keep local only)
+ml/sentiment/checkpoints/**/*.pt
+ml/sentiment/checkpoints/**/*.bin
+ml/sentiment/checkpoints/confusion_matrices/
+output.png
 
 # MLflow
 mlruns/
