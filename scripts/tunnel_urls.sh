@@ -2,7 +2,7 @@
 # Auto-fetch trycloudflare URLs from running cf-* containers.
 # Writes to /tunnel-urls.txt, stdout, and patches Coder workspace app URLs in Postgres.
 
-CONTAINERS="olist-cf-prefect olist-cf-mlflow olist-cf-redpanda olist-cf-iceberg olist-cf-coder olist-cf-streamlit olist-cf-ml-serving"
+CONTAINERS="olist-cf-prefect olist-cf-mlflow olist-cf-redpanda olist-cf-iceberg olist-cf-coder olist-cf-streamlit olist-cf-ml-serving olist-cf-marquez"
 OUT=/tunnel-urls.txt
 PGCONN="postgresql://olist:${POSTGRES_PASSWORD:-olistpass}@postgres:5432/coder"
 
@@ -14,14 +14,16 @@ patch_coder_db() {
   PREFECT_URL="$1"
   MLFLOW_URL="$2"
   REDPANDA_URL="$3"
-  [ -z "$PREFECT_URL" ] && [ -z "$MLFLOW_URL" ] && [ -z "$REDPANDA_URL" ] && return
+  MARQUEZ_URL="$4"
+  [ -z "$PREFECT_URL" ] && [ -z "$MLFLOW_URL" ] && [ -z "$REDPANDA_URL" ] && [ -z "$MARQUEZ_URL" ] && return
 
   psql "$PGCONN" -q <<SQL 2>/dev/null
 UPDATE workspace_apps SET url = '$MLFLOW_URL'   WHERE slug = 'mlflow'   AND url LIKE 'https://%.trycloudflare.com';
 UPDATE workspace_apps SET url = '$PREFECT_URL'  WHERE slug = 'prefect'  AND url LIKE 'https://%.trycloudflare.com';
 UPDATE workspace_apps SET url = '$REDPANDA_URL' WHERE slug = 'redpanda' AND url LIKE 'https://%.trycloudflare.com';
+UPDATE workspace_apps SET url = '$MARQUEZ_URL'  WHERE slug = 'marquez'  AND url LIKE 'https://%.trycloudflare.com';
 SQL
-  echo "[url-reporter] Coder DB patched: prefect=$PREFECT_URL mlflow=$MLFLOW_URL redpanda=$REDPANDA_URL"
+  echo "[url-reporter] Coder DB patched: prefect=$PREFECT_URL mlflow=$MLFLOW_URL redpanda=$REDPANDA_URL marquez=$MARQUEZ_URL"
 }
 
 patch_prefect_env() {
@@ -71,6 +73,7 @@ update_urls() {
   CODER_URL=$(get_url olist-cf-coder)
   STREAMLIT_URL=$(get_url olist-cf-streamlit)
   ML_SERVING_URL=$(get_url olist-cf-ml-serving)
+  MARQUEZ_URL=$(get_url olist-cf-marquez)
 
   {
     printf "=== Cloudflare Tunnel URLs ===\n"
@@ -82,10 +85,11 @@ update_urls() {
     printf "%-20s %s\n" "coder:"      "${CODER_URL:-not running}"
     printf "%-20s %s\n" "streamlit:"  "${STREAMLIT_URL:-not running}"
     printf "%-20s %s\n" "ml-serving:" "${ML_SERVING_URL:-not running}"
+    printf "%-20s %s\n" "marquez:"    "${MARQUEZ_URL:-not running}"
   } | tee "$OUT"
   echo ""
 
-  patch_coder_db "$PREFECT_URL" "$MLFLOW_URL" "$REDPANDA_URL"
+  patch_coder_db "$PREFECT_URL" "$MLFLOW_URL" "$REDPANDA_URL" "$MARQUEZ_URL"
   patch_prefect_env "$PREFECT_URL"
   patch_mlflow_env "$MLFLOW_URL"
   patch_ml_serving_env "$ML_SERVING_URL"

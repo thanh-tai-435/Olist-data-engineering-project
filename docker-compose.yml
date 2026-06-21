@@ -695,6 +695,17 @@ services:
     networks:
       - lakehouse
 
+  cf-marquez:
+    image: cloudflare/cloudflared:latest
+    container_name: olist-cf-marquez
+    restart: unless-stopped
+    profiles: ["lineage"]
+    command: tunnel --url http://marquez-web:3000
+    depends_on:
+      - marquez-web
+    networks:
+      - lakehouse
+
   cf-ml-serving:
     image: cloudflare/cloudflared:latest
     container_name: olist-cf-ml-serving
