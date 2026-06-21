@@ -6,10 +6,11 @@
 
 import re
 import unicodedata
+from typing import Optional
+
 import pandas as pd
 import plotly.express as px
 import plotly.graph_objects as go
-from typing import Optional
 import streamlit as st
 
 COLORS = ["#3B82F6","#10B981","#F59E0B","#8B5CF6","#EF4444",

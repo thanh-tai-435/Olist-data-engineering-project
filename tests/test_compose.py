@@ -1,7 +1,8 @@
 """Validate docker-compose.yml structure — no Docker daemon required."""
-import yaml
-import pytest
 from pathlib import Path
+
+import pytest
+import yaml
 
 COMPOSE_FILE = Path("docker-compose.yml")
 
@@ -17,7 +18,7 @@ LINEAGE_SERVICES = ["marquez", "marquez-web"]
 
 @pytest.fixture(scope="module")
 def compose() -> dict:
-    return yaml.safe_load(COMPOSE_FILE.read_text())
+    return yaml.safe_load(COMPOSE_FILE.read_text(encoding="utf-8"))
 
 
 def test_compose_file_exists():

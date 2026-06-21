@@ -6,10 +6,10 @@ Usage:
     python soda_runner.py --layer silver
     python soda_runner.py --layer gold
 """
-import os
-import logging
-import tempfile
 import argparse
+import logging
+import os
+import tempfile
 from pathlib import Path
 
 import duckdb

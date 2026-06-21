@@ -13,10 +13,10 @@ Usage (host):
 Incremental mode (skip already-scored reviews):
   python ml/sentiment/infer_sentiment.py --incremental
 """
+import argparse
+import logging
 import os
 import sys
-import logging
-import argparse
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -31,7 +31,7 @@ sys.path.insert(0, str(Path(__file__).parents[1]))
 sys.path.insert(0, str(Path(__file__).parent))
 
 import mlflow
-from model import ABSAModel, ALL_HEADS, ASPECTS, LABEL_NAMES, get_tokenizer
+from model import ALL_HEADS, ASPECTS, LABEL_NAMES, ABSAModel, get_tokenizer
 from utils import get_catalog, setup_mlflow
 
 logging.basicConfig(

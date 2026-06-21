@@ -3,15 +3,16 @@ Flow: Bronze Batch Ingestion
 Đọc CSV từ data/raw/ → validate → ghi vào Bronze Iceberg tables trên R2.
 """
 import os
+from datetime import datetime, timezone
+from pathlib import Path
+
 import pandas as pd
 import pyarrow as pa
-from pathlib import Path
-from datetime import datetime, timezone
+from prefect.artifacts import create_table_artifact
 from pyiceberg.catalog import load_catalog
 from pyiceberg.exceptions import NoSuchTableError
-from prefect import flow, task, get_run_logger
-from prefect.artifacts import create_table_artifact
 
+from prefect import flow, get_run_logger, task
 
 DATA_ROOT = Path(os.environ.get("DATA_ROOT", "/app/data/raw"))
 ICEBERG_URI = os.environ.get("ICEBERG_REST_URI", "http://iceberg-rest:8181")

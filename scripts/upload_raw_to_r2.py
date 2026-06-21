@@ -6,8 +6,9 @@ Cách dùng:
   python scripts/upload_raw_to_r2.py
 """
 import os
-import boto3
 from pathlib import Path
+
+import boto3
 from dotenv import load_dotenv
 
 load_dotenv()

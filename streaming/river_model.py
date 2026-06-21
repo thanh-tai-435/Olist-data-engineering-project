@@ -7,14 +7,14 @@ Standalone evaluation trên CSV:
 
 Được import và gọi bởi consumer.py sau mỗi batch flush của olist.orders.
 """
+import argparse
+import logging
 import os
 import pickle
-import logging
-import argparse
-import pandas as pd
 from pathlib import Path
 
-from river import compose, preprocessing, linear_model, metrics
+import pandas as pd
+from river import compose, linear_model, metrics, preprocessing
 
 log = logging.getLogger(__name__)
 
@@ -162,7 +162,7 @@ def evaluate_on_csv(data_dir: str) -> None:
 
     roc = float(model.roc.get()) if model.n_learned > 20 else float("nan")
     acc = float(model.acc.get()) if model.n_learned > 20 else float("nan")
-    print(f"\n=== River Evaluation Results ===")
+    print("\n=== River Evaluation Results ===")
     print(f"  Total seen:    {model.n_seen:,}")
     print(f"  With label:    {model.n_learned:,}  (delivered orders)")
     print(f"  ROC-AUC:       {roc:.4f}")

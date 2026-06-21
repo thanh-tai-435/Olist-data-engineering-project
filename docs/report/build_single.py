@@ -1,12 +1,13 @@
 """Convert a single markdown file to DOCX using the project's build_docx styles."""
-import sys
 import re
+import sys
 from pathlib import Path
+
 from docx import Document
-from docx.shared import Pt, Cm, RGBColor
 from docx.enum.text import WD_ALIGN_PARAGRAPH
-from docx.oxml.ns import qn
 from docx.oxml import OxmlElement
+from docx.oxml.ns import qn
+from docx.shared import Cm, Pt, RGBColor
 
 
 def setup_document() -> Document:

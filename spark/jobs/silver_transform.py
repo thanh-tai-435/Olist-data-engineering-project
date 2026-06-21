@@ -11,8 +11,9 @@ Tables tạo ra trong namespace olist.silver:
   stg_marketing_leads, stg_marketing_deals,
   int_orders_enriched (intermediate join, dùng bởi Gold layer)
 """
-import os
 import logging
+import os
+
 from pyspark.sql import SparkSession
 from pyspark.sql import functions as F
 from pyspark.sql.window import Window

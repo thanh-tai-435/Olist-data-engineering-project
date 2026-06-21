@@ -2,11 +2,13 @@
 Prefect tasks/flows: Soda Core data quality checks.
 Chạy sau mỗi layer transform để gate pipeline.
 """
-import sys
 import logging
+import sys
 from pathlib import Path
-from prefect import flow, task, get_run_logger
+
 from prefect.artifacts import create_markdown_artifact
+
+from prefect import flow, get_run_logger, task
 
 _QUALITY_DIR = Path(__file__).parents[1] / "quality"
 if str(_QUALITY_DIR) not in sys.path:

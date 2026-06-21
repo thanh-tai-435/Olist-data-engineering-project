@@ -14,17 +14,17 @@ Triggers:
 Usage:
   python ml/sentiment/drift_detector.py
 """
+import logging
 import os
 import sys
-import logging
-from pathlib import Path
-from datetime import datetime, timezone, timedelta
 from dataclasses import dataclass
+from datetime import datetime, timedelta, timezone
+from pathlib import Path
 
 import numpy as np
 import pandas as pd
-from scipy import stats
 from pyiceberg.exceptions import NoSuchTableError
+from scipy import stats
 
 sys.path.insert(0, str(Path(__file__).parents[1]))
 sys.path.insert(0, str(Path(__file__).parent))
@@ -217,7 +217,7 @@ if __name__ == "__main__":
     print(f"  KL divergence (overall):  {report.kl_divergence_overall:.4f}  (threshold={DRIFT_THRESHOLD})")
     print(f"  Chi-square p-value:       {report.chi2_pvalue:.4f}")
     print(f"  New unscored reviews:     {report.new_unscored_count}  (threshold={RETRAIN_THRESHOLD})")
-    print(f"  Per-aspect KL:")
+    print("  Per-aspect KL:")
     for aspect, kl in report.per_aspect_kl.items():
         print(f"    {aspect:25s}  {kl:.4f}")
     print(f"  Baseline distribution:  {report.baseline_dist}")

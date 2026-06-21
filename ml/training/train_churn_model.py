@@ -7,23 +7,29 @@ Logs to: MLflow experiment "customer-churn-prediction"
 Usage:
   python ml/training/train_churn_model.py
 """
-import sys, os
+import os
+import sys
+
 sys.path.insert(0, os.path.join(os.path.dirname(__file__)))
 
 import logging
-import pandas as pd
+
 import mlflow
 import mlflow.sklearn
+import pandas as pd
 from sklearn.compose import ColumnTransformer
+from sklearn.metrics import (
+    classification_report,
+    f1_score,
+    precision_score,
+    recall_score,
+    roc_auc_score,
+)
+from sklearn.model_selection import train_test_split
 from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import OrdinalEncoder
-from sklearn.model_selection import train_test_split
-from sklearn.metrics import (
-    roc_auc_score, f1_score, precision_score, recall_score, classification_report
-)
-from xgboost import XGBClassifier
-
 from utils import load_gold_table, setup_mlflow
+from xgboost import XGBClassifier
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s  %(levelname)-8s  %(message)s")
 log = logging.getLogger(__name__)

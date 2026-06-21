@@ -1,7 +1,8 @@
 """Validate Soda Core YAML check files — no infrastructure required."""
-import yaml
-import pytest
 from pathlib import Path
+
+import pytest
+import yaml
 
 CHECKS_DIR = Path("quality/checks")
 
@@ -59,7 +60,7 @@ def test_every_check_block_has_items(layer):
 @pytest.mark.parametrize("layer", ["bronze", "silver", "gold"])
 def test_expected_tables_all_covered(layer):
     data = _load(layer)
-    defined = {k.removeprefix("checks for") for k in data}
+    defined = {k.removeprefix("checks for ") for k in data}
     for table in EXPECTED_TABLES[layer]:
         assert table in defined, \
             f"[{layer}] No checks defined for table '{table}'"

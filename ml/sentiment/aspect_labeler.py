@@ -9,8 +9,9 @@ Label encoding:
 
 Aspects: product_quality, delivery_speed, seller_service, price_value
 """
-import re
 import logging
+import re
+
 import pandas as pd
 
 log = logging.getLogger(__name__)

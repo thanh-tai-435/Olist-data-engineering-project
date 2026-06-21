@@ -14,14 +14,15 @@ Cách dùng:
   python scripts/batch_ingest_bronze.py --table ecommerce_orders # chỉ 1 table
   python scripts/batch_ingest_bronze.py --table ecommerce_orders --overwrite
 """
+import argparse
 import io
 import os
 import sys
-import argparse
+from datetime import datetime, timezone
+
 import boto3
 import pandas as pd
 import pyarrow as pa
-from datetime import datetime, timezone
 from dotenv import load_dotenv
 from pyiceberg.catalog import load_catalog
 from pyiceberg.partitioning import PartitionSpec
@@ -148,7 +149,7 @@ def ingest_table(
 
     if overwrite and catalog.table_exists(full_name):
         catalog.drop_table(full_name)
-        print(f"  Dropped existing table (--overwrite).")
+        print("  Dropped existing table (--overwrite).")
 
     if catalog.table_exists(full_name):
         tbl = catalog.load_table(full_name)
@@ -157,7 +158,7 @@ def ingest_table(
             row_count = snap.summary.get("total-records", "?")
             print(f"  [SKIP] Table already has {row_count} rows. Use --overwrite to re-ingest.")
             return 0
-        print(f"  Table exists (empty) -> appending.")
+        print("  Table exists (empty) -> appending.")
     else:
         tbl = catalog.create_table(
             identifier=full_name,
@@ -165,7 +166,7 @@ def ingest_table(
             location=f"s3://{BUCKET}/bronze/{table_name}",
             partition_spec=PartitionSpec(),
         )
-        print(f"  Table created.")
+        print("  Table created.")
 
     tbl.append(arrow_tbl)
     print(f"  Written: {len(df):,} rows")
@@ -202,8 +203,8 @@ def main():
         )
     except Exception as e:
         print(f"[ERROR] Cannot connect to Iceberg REST catalog at {ICEBERG_URI}")
-        print(f"        Make sure Docker stack is running: docker compose up -d")
-        print(f"        Then verify: curl http://localhost:8181/v1/config")
+        print("        Make sure Docker stack is running: docker compose up -d")
+        print("        Then verify: curl http://localhost:8181/v1/config")
         print(f"        Detail: {e}")
         sys.exit(1)
 

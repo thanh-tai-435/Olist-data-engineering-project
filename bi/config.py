@@ -2,6 +2,7 @@
 import os
 import sys
 
+
 def _get(key: str, default: str = "") -> str:
     # st.secrets takes priority (Streamlit Cloud deployment)
     try:

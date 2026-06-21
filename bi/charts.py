@@ -1,5 +1,6 @@
 """Chart rendering with dual detection: question intent signals + data shape fallback."""
 import re
+
 import pandas as pd
 import plotly.express as px
 import streamlit as st

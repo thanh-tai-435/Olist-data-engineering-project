@@ -6,9 +6,10 @@ Cách dùng:
   python scripts/verify_bronze.py
   python scripts/verify_bronze.py --table ecommerce_orders   # xem sample rows
 """
+import argparse
 import os
 import sys
-import argparse
+
 from dotenv import load_dotenv
 from pyiceberg.catalog import load_catalog
 
@@ -33,7 +34,7 @@ def main():
         })
     except Exception as e:
         print(f"[ERROR] Không kết nối được Iceberg REST tại {ICEBERG_URI}")
-        print(f"        Chạy: docker compose up -d")
+        print("        Chạy: docker compose up -d")
         print(f"        {e}")
         sys.exit(1)
 

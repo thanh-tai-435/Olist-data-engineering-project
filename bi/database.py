@@ -2,9 +2,8 @@
 import duckdb
 import pandas as pd
 import streamlit as st
+from config import GOLD_TABLES, ICEBERG_URI, S3_ACCESS_KEY, S3_ENDPOINT, S3_REGION, S3_SECRET_KEY
 from pyiceberg.catalog import load_catalog
-from config import ICEBERG_URI, S3_ENDPOINT, S3_ACCESS_KEY, S3_SECRET_KEY, S3_REGION, GOLD_TABLES
-
 
 # ── Column descriptions — explicit BRL units prevent LLM hallucination ─────────
 

@@ -12,14 +12,16 @@
 # ============================================================
 
 from __future__ import annotations
-import re, unicodedata
-from typing import Generator
-from groq import Groq
-import pandas as pd
 
+import re
+import unicodedata
+from typing import Generator
+
+import pandas as pd
 from config import GROQ_API_KEY, GROQ_MODEL, MAX_SQL_RETRIES
-from validator import validate_input, route_question, build_schema_context
 from database import execute_query
+from groq import Groq
+from validator import build_schema_context, route_question, validate_input
 
 # ---- Conversation memory ----------------------------------------
 MAX_HISTORY = 6

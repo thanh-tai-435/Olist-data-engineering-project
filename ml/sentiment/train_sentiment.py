@@ -16,24 +16,25 @@ Env (connect to Docker services):
   ICEBERG_REST_URI   (default: http://localhost:8181)
   MLFLOW_TRACKING_URI (default: http://localhost:5000)
 """
+import logging
 import os
 import sys
-import logging
-from pathlib import Path
 from datetime import datetime
+from pathlib import Path
 
+import matplotlib
+import mlflow
+import mlflow.pyfunc
 import numpy as np
 import pandas as pd
 import torch
 import torch.nn.functional as F
-from torch.utils.data import Dataset, DataLoader
-from torch.optim import AdamW
-from transformers import get_linear_schedule_with_warmup, AutoTokenizer
-from sklearn.model_selection import train_test_split
 from sklearn.metrics import classification_report, confusion_matrix
-import mlflow
-import mlflow.pyfunc
-import matplotlib
+from sklearn.model_selection import train_test_split
+from torch.optim import AdamW
+from torch.utils.data import DataLoader, Dataset
+from transformers import AutoTokenizer, get_linear_schedule_with_warmup
+
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 import seaborn as sns
@@ -42,8 +43,8 @@ import seaborn as sns
 sys.path.insert(0, str(Path(__file__).parents[1]))
 sys.path.insert(0, str(Path(__file__).parent))
 
-from aspect_labeler import label_dataframe, ASPECTS, LABEL_NAMES
-from model import ABSAModel, ALL_HEADS, get_tokenizer
+from aspect_labeler import ASPECTS, LABEL_NAMES, label_dataframe
+from model import ALL_HEADS, ABSAModel, get_tokenizer
 from utils import get_catalog, setup_mlflow
 
 logging.basicConfig(
@@ -221,15 +222,18 @@ class ABSAPyfuncWrapper(mlflow.pyfunc.PythonModel):
     Output: DataFrame with sentiment predictions per head + confidence scores
     """
     def load_context(self, context):
-        import sys, json, torch
+        import json
+        import sys
         from pathlib import Path
+
+        import torch
         # Reconstruct model from saved artifacts
         weights_path = context.artifacts["model_weights"]
         config_path  = context.artifacts["model_config"]
         tokenizer_dir = context.artifacts["tokenizer_dir"]
 
         sys.path.insert(0, str(Path(weights_path).parent))
-        from model import ABSAModel, get_tokenizer, LABEL_NAMES, ALL_HEADS
+        from model import ALL_HEADS, LABEL_NAMES, ABSAModel, get_tokenizer
 
         self._model      = ABSAModel.load(weights_path, config_path)
         self._model.eval()
@@ -446,7 +450,7 @@ def train() -> str:
 
         # 7. Classification report
         log.info("\n%s", classification_report(
-            [b[f"label_overall"].item() for b in [test_set[i] for i in range(len(test_set))]],
+            [b["label_overall"].item() for b in [test_set[i] for i in range(len(test_set))]],
             [],  # skip full report here — logged via MLflow
             target_names=[LABEL_NAMES[i] for i in range(3)],
         ) if False else "")

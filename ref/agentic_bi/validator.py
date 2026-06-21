@@ -11,6 +11,7 @@
 import re
 import unicodedata
 from dataclasses import dataclass
+
 from database import GOLD_SCHEMA
 
 INVALID_MSG = (

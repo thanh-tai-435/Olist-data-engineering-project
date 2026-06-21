@@ -1,8 +1,9 @@
 """Shared utilities for ML training scripts."""
-import os
 import logging
-import pandas as pd
+import os
+
 import mlflow
+import pandas as pd
 from pyiceberg.catalog import load_catalog
 
 log = logging.getLogger(__name__)

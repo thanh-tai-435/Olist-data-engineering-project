@@ -11,14 +11,16 @@ Usage:
   python prefect/flows/ml_training.py               # one-shot full training
   python prefect/flows/ml_training.py --serve       # weekly Sunday 04:00 UTC schedule
 """
-import sys
-import os
 import argparse
+import os
+import sys
+
 sys.path.insert(0, "/app/ml/training")
 
-from prefect import flow, task
-from prefect.artifacts import create_markdown_artifact
 from notifications import notify_failure
+from prefect.artifacts import create_markdown_artifact
+
+from prefect import flow, task
 
 
 @task(name="train-delivery-model", retries=1, retry_delay_seconds=30)

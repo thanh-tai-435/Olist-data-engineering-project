@@ -20,12 +20,13 @@ Topics:
   olist.reviews   ← olist_order_reviews_dataset.csv
   olist.payments  ← olist_order_payments_dataset.csv
 """
-import os
 import json
-import time
 import logging
-import pandas as pd
+import os
+import time
 from datetime import datetime, timezone
+
+import pandas as pd
 from confluent_kafka import Producer
 
 logging.basicConfig(

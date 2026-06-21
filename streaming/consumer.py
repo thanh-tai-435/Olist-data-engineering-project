@@ -16,14 +16,15 @@ Topics consumed → Bronze tables:
   olist.reviews  → olist.bronze.ecommerce_order_reviews
   olist.payments → olist.bronze.ecommerce_order_payments
 """
-import os
 import json
-import time
 import logging
+import os
+import time
+from collections import defaultdict
+from datetime import datetime, timezone
+
 import pandas as pd
 import pyarrow as pa
-from datetime import datetime, timezone
-from collections import defaultdict
 from confluent_kafka import Consumer, KafkaError, KafkaException
 from pyiceberg.catalog import load_catalog
 from pyiceberg.exceptions import NoSuchTableError
@@ -37,7 +38,7 @@ logging.basicConfig(
 log = logging.getLogger(__name__)
 
 try:
-    from river_model import DeliveryDelayPredictor, SAVE_EVERY
+    from river_model import SAVE_EVERY, DeliveryDelayPredictor
     _RIVER_ENABLED = True
 except ImportError:
     _RIVER_ENABLED = False

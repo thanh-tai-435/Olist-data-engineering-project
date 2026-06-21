@@ -7,6 +7,7 @@
 
 import os
 import sys
+
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -21,7 +22,7 @@ def _require(key: str) -> str:
     value = os.getenv(key)
     if not value:
         print(f"[CONFIG ERROR] Bien moi truong bat buoc '{key}' chua duoc thiet lap.")
-        print(f"[CONFIG ERROR] Vui long kiem tra file .env va thu lai.")
+        print("[CONFIG ERROR] Vui long kiem tra file .env va thu lai.")
         sys.exit(1)
     return value
 

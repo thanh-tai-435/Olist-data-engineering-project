@@ -17,10 +17,11 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parents[1] / "flows"))
 
-from prefect import serve
 from full_pipeline import full_pipeline_flow
-from sentiment_flow import sentiment_pipeline_flow
 from ml_training import ml_training_flow
+from sentiment_flow import sentiment_pipeline_flow
+
+from prefect import serve
 
 if __name__ == "__main__":
     print("Registering deployments and starting workers…")

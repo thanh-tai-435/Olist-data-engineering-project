@@ -7,22 +7,24 @@ Logs to: MLflow experiment "delivery-delay-prediction"
 Usage:
   python ml/training/train_delivery_model.py
 """
-import sys, os
+import os
+import sys
+
 sys.path.insert(0, os.path.join(os.path.dirname(__file__)))
 
 import logging
-import numpy as np
-import pandas as pd
+
 import mlflow
 import mlflow.sklearn
+import numpy as np
+import pandas as pd
 from sklearn.compose import ColumnTransformer
+from sklearn.metrics import mean_absolute_error, mean_squared_error, r2_score
+from sklearn.model_selection import train_test_split
 from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import OrdinalEncoder
-from sklearn.model_selection import train_test_split
-from sklearn.metrics import mean_squared_error, mean_absolute_error, r2_score
-from xgboost import XGBRegressor
-
 from utils import load_gold_table, setup_mlflow
+from xgboost import XGBRegressor
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s  %(levelname)-8s  %(message)s")
 log = logging.getLogger(__name__)

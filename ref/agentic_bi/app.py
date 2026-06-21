@@ -4,12 +4,13 @@
 #      render_smart_chart → tránh Streamlit duplicate ID crash
 # ============================================================
 
-import streamlit as st
-import pandas as pd
 from pathlib import Path
-from agent import run_agent, AgentEvent
-from database import get_kpi_summary
+
+import pandas as pd
+import streamlit as st
+from agent import AgentEvent, run_agent
 from charts import render_smart_chart
+from database import get_kpi_summary
 
 st.set_page_config(page_title="Agentic BI", page_icon=None,
                    layout="wide", initial_sidebar_state="expanded")

@@ -8,11 +8,13 @@ New features vs original:
   - --serve flag: start with daily 02:00 UTC schedule instead of a one-shot run
 """
 import argparse
-from prefect import flow, get_run_logger, pause_flow_run
+
 from bronze_ingestion import bronze_ingestion_flow
-from spark_transforms import silver_transform_flow, gold_transform_flow
-from quality_checks import soda_check_task, raise_if_failed
 from notifications import notify_failure
+from quality_checks import raise_if_failed, soda_check_task
+from spark_transforms import gold_transform_flow, silver_transform_flow
+
+from prefect import flow, get_run_logger, pause_flow_run
 
 
 def _quality_gate(layer: str, result: dict, pause: bool, log) -> None:

@@ -1,7 +1,6 @@
 """Unit tests for pipeline logic — no Prefect/Spark/Iceberg required."""
 import pytest
 
-
 # ── Inline the logic under test so we don't need to import prefect ──────────
 
 def _raise_if_failed(result: dict) -> None:
@@ -90,9 +89,17 @@ def test_gold_layer_tables_includes_sentiment():
 
     # Mock heavy deps before importing soda_runner
     import types
-    for mod in ["duckdb", "pyiceberg", "pyiceberg.catalog", "soda", "soda.scan"]:
+    for mod in ["duckdb", "pyiceberg", "soda"]:
         if mod not in sys.modules:
             sys.modules[mod] = types.ModuleType(mod)
+    if "pyiceberg.catalog" not in sys.modules:
+        _mock_catalog = types.ModuleType("pyiceberg.catalog")
+        _mock_catalog.load_catalog = lambda *a, **kw: None  # type: ignore[attr-defined]
+        sys.modules["pyiceberg.catalog"] = _mock_catalog
+    if "soda.scan" not in sys.modules:
+        _mock_scan = types.ModuleType("soda.scan")
+        _mock_scan.Scan = type("Scan", (), {})  # type: ignore[attr-defined]
+        sys.modules["soda.scan"] = _mock_scan
 
     import importlib
     sr = importlib.import_module("soda_runner")

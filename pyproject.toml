@@ -8,7 +8,13 @@ ignore = [
     "E501",   # line too long — handled by formatter
     "F401",   # unused import — common in __init__ re-exports
 ]
-exclude = ["ml/notebooks/"]
+exclude = ["ml/notebooks"]
+
+[tool.ruff.lint.per-file-ignores]
+"docs/report/*.py"   = ["E", "W", "F", "I"]
+"ref/**/*.py"        = ["E", "W", "F", "I"]
+"scripts/*.py"       = ["E701", "E741", "F841"]
+"ml/notebooks/*.ipynb" = ["E402", "E501"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

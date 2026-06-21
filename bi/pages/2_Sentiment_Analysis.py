@@ -1,11 +1,10 @@
 """
 Sentiment Analysis Dashboard — ABSA results from gold.review_sentiment
 """
-import streamlit as st
 import pandas as pd
 import plotly.express as px
 import plotly.graph_objects as go
-
+import streamlit as st
 from database import get_db_connection
 
 st.set_page_config(page_title="Sentiment Analysis", page_icon="💬", layout="wide")

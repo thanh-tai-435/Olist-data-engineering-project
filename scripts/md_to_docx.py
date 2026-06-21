@@ -7,11 +7,12 @@ Convert phan_BC.md → phan_BC.docx
 import re
 import sys
 from pathlib import Path
+
 from docx import Document
-from docx.shared import Pt, RGBColor, Inches, Cm
 from docx.enum.text import WD_ALIGN_PARAGRAPH
-from docx.oxml.ns import qn
 from docx.oxml import OxmlElement
+from docx.oxml.ns import qn
+from docx.shared import Cm, Inches, Pt, RGBColor
 
 BLACK = RGBColor(0, 0, 0)
 

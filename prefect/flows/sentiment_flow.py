@@ -22,15 +22,16 @@ Decision logic:
   drift_detector → should_retrain? → train_sentiment → infer_sentiment
   drift_detector → should_infer?   → infer_sentiment (skip retrain)
 """
-import sys
-import logging
 import argparse
-from pathlib import Path
+import logging
+import sys
 from datetime import datetime, timezone
+from pathlib import Path
 
-from prefect import flow, task, get_run_logger
-from prefect.artifacts import create_markdown_artifact
 from notifications import notify_failure
+from prefect.artifacts import create_markdown_artifact
+
+from prefect import flow, get_run_logger, task
 
 sys.path.insert(0, str(Path(__file__).parents[2] / "ml"))
 sys.path.insert(0, str(Path(__file__).parents[2] / "ml" / "sentiment"))

@@ -1,6 +1,7 @@
 """Shared utilities for sentiment scripts — runs on HOST (not in Docker worker)."""
-import os
 import logging
+import os
+
 import mlflow
 from pyiceberg.catalog import load_catalog
 

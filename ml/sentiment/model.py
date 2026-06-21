@@ -16,7 +16,7 @@ from pathlib import Path
 
 import torch
 import torch.nn as nn
-from transformers import BertModel, AutoTokenizer
+from transformers import AutoTokenizer, BertModel
 
 log = logging.getLogger(__name__)
 

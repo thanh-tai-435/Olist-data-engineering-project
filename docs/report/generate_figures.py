@@ -4,13 +4,15 @@ Usage: python generate_figures.py
 """
 
 import matplotlib
+
 matplotlib.use("Agg")
-import matplotlib.pyplot as plt
-import matplotlib.patches as mpatches
-from matplotlib.patches import FancyBboxPatch, FancyArrowPatch
-import matplotlib.patheffects as pe
-import numpy as np
 from pathlib import Path
+
+import matplotlib.patches as mpatches
+import matplotlib.patheffects as pe
+import matplotlib.pyplot as plt
+import numpy as np
+from matplotlib.patches import FancyArrowPatch, FancyBboxPatch
 
 IMG_DIR = Path(__file__).parent / "img"
 IMG_DIR.mkdir(exist_ok=True)

@@ -17,8 +17,8 @@ Blocks created:
 """
 import os
 import sys
-from prefect.blocks.system import Secret
 
+from prefect.blocks.system import Secret
 
 # (env_var, required)
 _CREDENTIALS = {

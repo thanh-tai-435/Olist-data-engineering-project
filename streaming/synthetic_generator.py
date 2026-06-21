@@ -12,14 +12,15 @@ Usage:
   docker exec -e RATE=3 olist-prefect-worker python /app/streaming/synthetic_generator.py
   docker exec -e RATE=10 -e MAX_EVENTS=5000 olist-prefect-worker python /app/streaming/synthetic_generator.py
 """
-import os
 import json
+import logging
+import os
 import time
 import uuid
-import logging
+from datetime import datetime, timedelta, timezone
+
 import numpy as np
 import pandas as pd
-from datetime import datetime, timedelta, timezone
 from confluent_kafka import Producer
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)-8s %(message)s", datefmt="%H:%M:%S")

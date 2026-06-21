@@ -1,23 +1,99 @@
 """
 Core agent logic:
-  - LLM call abstraction (Anthropic / OpenRouter / Groq)
+  - Anthropic: native tool_use agentic loop (multi-step, self-correcting)
+  - OpenRouter / Groq: text-based SQL fallback with self-correction
   - Intent handlers: SMALLTALK, FOLLOWUP, DATA_QUERY
-  - SQL generation with self-correction (up to MAX_RETRIES)
-  - Post-execution result summarization
 """
 import json
 import re
+from typing import Callable, Optional
+
 import duckdb
 import pandas as pd
-
 from config import (
-    AI_PROVIDER, ANTHROPIC_KEY, CLAUDE_MODEL,
-    OPENROUTER_KEY, OPENROUTER_MODEL,
-    GROQ_KEY, GROQ_MODEL,
-    GOLD_TABLES, MAX_ROWS, MAX_HISTORY, MAX_RETRIES,
+    AI_PROVIDER,
+    ANTHROPIC_KEY,
+    CLAUDE_MODEL,
+    GOLD_TABLES,
+    GROQ_KEY,
+    GROQ_MODEL,
+    MAX_HISTORY,
+    MAX_RETRIES,
+    MAX_ROWS,
+    OPENROUTER_KEY,
+    OPENROUTER_MODEL,
 )
 
+# ── Tool definition (Anthropic tool_use API) ──────────────────────────────────
+
+_TOOLS = [
+    {
+        "name": "query_database",
+        "description": (
+            "Execute a SQL SELECT query on the Olist Gold tables via DuckDB. "
+            "Call one or more times to answer the user's question. "
+            "For complex analysis, break into multiple targeted sub-queries — "
+            "each focusing on one angle (revenue, reviews, delivery, funnel, etc.)."
+        ),
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "sql": {
+                    "type": "string",
+                    "description": "Valid DuckDB SELECT statement. Include LIMIT to cap rows.",
+                },
+                "explanation": {
+                    "type": "string",
+                    "description": "One-sentence Vietnamese description of what this query answers.",
+                },
+                "chart_type": {
+                    "type": "string",
+                    "enum": ["bar", "line", "pie", "scatter", "none"],
+                    "description": (
+                        "Best chart to visualize the result: "
+                        "bar=category comparison, line=time trend, "
+                        "pie=percentage breakdown, scatter=correlation, none=table."
+                    ),
+                },
+            },
+            "required": ["sql", "explanation", "chart_type"],
+        },
+    }
+]
+
 # ── Prompts ───────────────────────────────────────────────────────────────────
+
+_SYSTEM_TOOL = """\
+Bạn là SQL analyst chuyên phân tích dữ liệu e-commerce Olist Brazil.
+
+NHIỆM VỤ: Dùng tool `query_database` để trả lời câu hỏi. Sau khi có đủ data, viết 2-3 câu insight bằng tiếng Việt.
+
+QUY TẮC SQL:
+- Chỉ SELECT. Tuyệt đối không INSERT/UPDATE/DELETE/DROP/CREATE.
+- Tự động thêm LIMIT {max_rows} nếu query không có LIMIT.
+- Bảng khả dụng: {table_names}
+- Tiền tệ BRL (R$) — ghi rõ đơn vị trong explanation.
+- Group theo tháng: strftime(purchased_at, '%Y-%m') hoặc date_trunc('month', col).
+
+KHI NÀO GỌI NHIỀU QUERY:
+- Câu hỏi "phân tích toàn diện", "so sánh X và Y", "top N với chi tiết" → gọi từng query riêng.
+- Ví dụ: "Top 5 seller" → query 1: doanh thu, query 2: review score, query 3: tỷ lệ giao trễ.
+- SQL lỗi → tự sửa và gọi lại (Claude thấy ERROR trong kết quả tool).
+
+SENTIMENT:
+- Dùng bảng `review_sentiment` (cột: overall_sentiment, product_quality_sentiment, delivery_speed_sentiment, seller_service_sentiment, price_value_sentiment).
+- KHÔNG dùng review_score để suy ra sentiment.
+- Join: review_sentiment.order_id = fct_orders.order_id
+
+INSIGHT CUỐI (sau khi gọi tool xong):
+- Nêu số liệu cụ thể với đơn vị đầy đủ (R$, %, ngày).
+- Tiền BRL: >1 tỷ → "X,XX tỷ R$", >1 triệu → "X,XX triệu R$".
+- Không dùng: "có thể", "dường như", "khoảng".
+- Tối đa 3 câu.
+
+SCHEMA:
+{schema}
+"""
 
 _SYSTEM_SQL = """\
 Bạn là SQL analyst chuyên về dữ liệu e-commerce Olist Brazil.
@@ -33,8 +109,9 @@ QUY TẮC SQL:
 - Explanation bằng tiếng Việt, ngắn gọn.
 
 QUAN TRỌNG — SENTIMENT:
-- Khi câu hỏi liên quan đến sentiment/cảm xúc/đánh giá (positive/negative/neutral), LUÔN dùng bảng `review_sentiment` (cột overall_sentiment, product_quality_sentiment, delivery_speed_sentiment, seller_service_sentiment, price_value_sentiment).
-- KHÔNG dùng review_score từ fct_orders để suy ra sentiment — đó là số sao, không phải kết quả model ABSA.
+- Khi câu hỏi liên quan đến sentiment/cảm xúc/đánh giá (positive/negative/neutral), LUÔN dùng bảng `review_sentiment`.
+- Cột: overall_sentiment, product_quality_sentiment, delivery_speed_sentiment, seller_service_sentiment, price_value_sentiment.
+- KHÔNG dùng review_score từ fct_orders để suy ra sentiment.
 - Join: review_sentiment.order_id = fct_orders.order_id
 
 OUTPUT — chỉ JSON thuần, không markdown:
@@ -69,14 +146,8 @@ A: {{"sql": "SELECT is_churned, COUNT(*) AS customers, ROUND(COUNT(*)*100.0/SUM(
 Q: Tỷ lệ giao hàng trễ theo bang?
 A: {{"sql": "SELECT customer_state, COUNT(*) AS total, SUM(CASE WHEN delivery_status='late' THEN 1 ELSE 0 END) AS late_orders, ROUND(SUM(CASE WHEN delivery_status='late' THEN 1 ELSE 0 END)*100.0/COUNT(*),2) AS late_pct FROM fct_orders GROUP BY customer_state ORDER BY late_pct DESC LIMIT 15", "explanation": "Tỷ lệ % đơn hàng giao trễ theo từng bang.", "chart_type": "bar"}}
 
-Q: So sánh doanh thu positive và negative theo tháng 2017?
-A: {{"sql": "SELECT strftime(o.purchased_at, '%Y-%m') AS month, ROUND(SUM(CASE WHEN r.overall_sentiment='positive' THEN o.payment_value ELSE 0 END),2) AS pos_revenue_brl, ROUND(SUM(CASE WHEN r.overall_sentiment='negative' THEN o.payment_value ELSE 0 END),2) AS neg_revenue_brl FROM review_sentiment r JOIN fct_orders o ON r.order_id = o.order_id WHERE o.purchased_at >= '2017-01-01' AND o.purchased_at < '2018-01-01' GROUP BY 1 ORDER BY 1", "explanation": "Doanh thu (BRL) từ đơn hàng có review positive vs negative theo tháng năm 2017, dựa trên kết quả mô hình ABSA.", "chart_type": "line"}}
-
 Q: Tỷ lệ sentiment của review?
-A: {{"sql": "SELECT overall_sentiment, COUNT(*) AS reviews, ROUND(COUNT(*)*100.0/SUM(COUNT(*)) OVER(),2) AS pct FROM review_sentiment GROUP BY overall_sentiment ORDER BY reviews DESC", "explanation": "Phân bố sentiment (positive/neutral/negative) từ mô hình ABSA trên toàn bộ reviews.", "chart_type": "pie"}}
-
-Q: Bang nào có delivery_speed negative nhiều nhất?
-A: {{"sql": "SELECT o.customer_state, COUNT(*) AS total, SUM(CASE WHEN r.delivery_speed_sentiment='negative' THEN 1 ELSE 0 END) AS neg_delivery, ROUND(SUM(CASE WHEN r.delivery_speed_sentiment='negative' THEN 1 ELSE 0 END)*100.0/COUNT(*),1) AS neg_pct FROM review_sentiment r JOIN fct_orders o ON r.order_id = o.order_id GROUP BY o.customer_state HAVING COUNT(*) >= 50 ORDER BY neg_pct DESC LIMIT 10", "explanation": "Top bang có tỷ lệ review delivery_speed negative cao nhất (theo mô hình ABSA).", "chart_type": "bar"}}
+A: {{"sql": "SELECT overall_sentiment, COUNT(*) AS reviews, ROUND(COUNT(*)*100.0/SUM(COUNT(*)) OVER(),2) AS pct FROM review_sentiment GROUP BY overall_sentiment ORDER BY reviews DESC", "explanation": "Phân bố sentiment từ mô hình ABSA.", "chart_type": "pie"}}
 """
 
 _SYSTEM_SMALLTALK = """\
@@ -117,10 +188,9 @@ Hãy sửa lại SQL. Chỉ trả về JSON (không markdown):
 {{"sql": "...", "explanation": "...", "chart_type": "bar|line|pie|scatter|none"}}"""
 
 
-# ── LLM abstraction ───────────────────────────────────────────────────────────
+# ── LLM abstraction (text mode) ───────────────────────────────────────────────
 
 def _call_llm(messages: list, system: str, max_tokens: int = 1024) -> str:
-    """Call LLM. Primary: Anthropic Claude SDK. Fallback: openrouter / groq via HTTP."""
     if AI_PROVIDER == "anthropic":
         import anthropic
         client = anthropic.Anthropic(api_key=ANTHROPIC_KEY)
@@ -130,7 +200,6 @@ def _call_llm(messages: list, system: str, max_tokens: int = 1024) -> str:
         )
         return resp.content[0].text
 
-    # Fallback: OpenAI-compatible endpoints (openrouter / groq)
     import requests
     if AI_PROVIDER == "openrouter":
         url, key, model = "https://openrouter.ai/api/v1/chat/completions", OPENROUTER_KEY, OPENROUTER_MODEL
@@ -150,39 +219,155 @@ def _call_llm(messages: list, system: str, max_tokens: int = 1024) -> str:
 
 def _parse_json(text: str) -> dict:
     text = re.sub(r"```(?:json)?\s*", "", text).strip().rstrip("`")
-    m = re.search(r"\{.*\}", text, re.DOTALL)
-    return json.loads(m.group() if m else text)
+    start = text.find("{")
+    if start == -1:
+        raise json.JSONDecodeError("No JSON object found", text, 0)
+    obj, _ = json.JSONDecoder().raw_decode(text, start)
+    return obj
 
 
 # ── Intent handlers ───────────────────────────────────────────────────────────
 
 def handle_smalltalk(question: str) -> str:
-    """Short LLM call for greetings and system questions."""
-    return _call_llm(
-        [{"role": "user", "content": question}],
-        _SYSTEM_SMALLTALK,
-        max_tokens=256,
-    )
+    return _call_llm([{"role": "user", "content": question}], _SYSTEM_SMALLTALK, max_tokens=256)
 
 
 def handle_followup(question: str, history: list) -> str:
-    """Context-aware response using conversation history."""
     msgs = list(history[-MAX_HISTORY:]) + [{"role": "user", "content": question}]
     return _call_llm(msgs, _SYSTEM_FOLLOWUP, max_tokens=400)
 
 
-# ── SQL generation + self-correction ─────────────────────────────────────────
+# ── Tool use — Anthropic native agentic loop ──────────────────────────────────
 
-def generate_and_execute(
+def _run_tool_use(
+    question: str,
+    history: list,
+    schema: str,
+    con: duckdb.DuckDBPyConnection,
+    on_query: Optional[Callable] = None,
+) -> dict:
+    """
+    Agentic loop using Claude's native tool_use API.
+
+    Claude decides when and how many times to call query_database.
+    Each SQL error is visible to Claude in the tool result, so it
+    self-corrects naturally without explicit retry logic.
+
+    Returns: {sql, explanation, chart_type, result_df, all_queries, summary, error}
+    """
+    import anthropic
+    client = anthropic.Anthropic(api_key=ANTHROPIC_KEY)
+
+    system = _SYSTEM_TOOL.format(
+        max_rows=MAX_ROWS,
+        table_names=", ".join(GOLD_TABLES),
+        schema=schema,
+    )
+    messages = list(history[-MAX_HISTORY:]) + [{"role": "user", "content": question}]
+
+    all_queries: list[dict] = []
+    final_insight = ""
+    _MAX_ITERS = 8  # safety cap against infinite loops
+
+    for _ in range(_MAX_ITERS):
+        response = client.messages.create(
+            model=CLAUDE_MODEL,
+            max_tokens=4096,
+            system=system,
+            tools=_TOOLS,
+            messages=messages,
+            temperature=0,
+        )
+
+        # Collect any text content in this turn (appears in end_turn or alongside tool_use)
+        turn_text = " ".join(
+            b.text for b in response.content if hasattr(b, "text") and b.text
+        ).strip()
+
+        if response.stop_reason == "end_turn":
+            final_insight = turn_text
+            break
+
+        if response.stop_reason != "tool_use":
+            # Unexpected stop (max_tokens, etc.) — use whatever text we have
+            final_insight = turn_text
+            break
+
+        # ── Process all tool calls in this turn ──────────────────────────────
+        messages.append({"role": "assistant", "content": response.content})
+        tool_results = []
+
+        for block in response.content:
+            if block.type != "tool_use":
+                continue
+
+            sql         = block.input.get("sql", "").strip()
+            explanation = block.input.get("explanation", "")
+            chart_type  = block.input.get("chart_type", "none")
+
+            if sql and "limit" not in sql.lower():
+                sql += f" LIMIT {MAX_ROWS}"
+
+            if on_query:
+                on_query(len(all_queries) + 1, sql, explanation)
+
+            try:
+                df = con.execute(sql).df()
+                # Send a compact preview back to Claude (not the full DataFrame)
+                preview = df.head(50).to_string(index=False)
+                result_content = f"OK — {len(df)} rows returned.\n\n{preview}"
+                all_queries.append({
+                    "sql": sql, "explanation": explanation,
+                    "chart_type": chart_type, "result_df": df, "error": None,
+                })
+            except Exception as exc:
+                # Claude sees the error and can self-correct on next iteration
+                result_content = f"ERROR: {exc}"
+                all_queries.append({
+                    "sql": sql, "explanation": explanation,
+                    "chart_type": chart_type, "result_df": None, "error": str(exc),
+                })
+
+            tool_results.append({
+                "type": "tool_result",
+                "tool_use_id": block.id,
+                "content": result_content,
+            })
+
+        messages.append({"role": "user", "content": tool_results})
+
+    if not all_queries:
+        return {
+            "sql": "", "explanation": final_insight, "chart_type": "none",
+            "result_df": None, "all_queries": [], "summary": final_insight,
+            "error": "Claude không thực thi query nào.",
+        }
+
+    # Primary result = last query that succeeded (for chart + data display)
+    last_ok = next(
+        (q for q in reversed(all_queries) if q["result_df"] is not None),
+        all_queries[-1],
+    )
+    return {
+        "sql":         last_ok["sql"],
+        "explanation": last_ok["explanation"],
+        "chart_type":  last_ok["chart_type"],
+        "result_df":   last_ok["result_df"],
+        "all_queries": all_queries,
+        "summary":     final_insight,
+        "error":       None,
+    }
+
+
+# ── Text-based fallback (OpenRouter / Groq) ───────────────────────────────────
+
+def _generate_text_based(
     question: str,
     history: list,
     schema: str,
     con: duckdb.DuckDBPyConnection,
 ) -> dict:
-    """
-    Generate SQL via LLM → execute on DuckDB → self-correct up to MAX_RETRIES times.
-    Returns: {sql, explanation, chart_type, result_df, error}
-    """
+    """Single-shot text prompt → JSON → SQL, with self-correction retries."""
     system = _SYSTEM_SQL.format(
         max_rows=MAX_ROWS,
         table_names=", ".join(GOLD_TABLES),
@@ -190,8 +375,8 @@ def generate_and_execute(
     )
     base_msgs = list(history[-MAX_HISTORY:]) + [{"role": "user", "content": question}]
 
-    raw_sql    = ""
-    prev_raw   = ""
+    raw_sql = ""
+    prev_raw = ""
     last_error = ""
 
     for attempt in range(MAX_RETRIES):
@@ -201,7 +386,7 @@ def generate_and_execute(
             else:
                 msgs = base_msgs + [
                     {"role": "assistant", "content": prev_raw},
-                    {"role": "user",      "content": _FIX_MSG.format(sql=raw_sql, error=last_error)},
+                    {"role": "user", "content": _FIX_MSG.format(sql=raw_sql, error=last_error)},
                 ]
 
             raw      = _call_llm(msgs, system)
@@ -211,52 +396,37 @@ def generate_and_execute(
 
             if not raw_sql:
                 return {"error": "Không sinh được SQL.", "sql": "", "explanation": raw,
-                        "chart_type": "none", "result_df": None}
+                        "chart_type": "none", "result_df": None, "all_queries": []}
 
             if "limit" not in raw_sql.lower():
                 raw_sql += f" LIMIT {MAX_ROWS}"
             parsed["sql"] = raw_sql
 
             df = con.execute(raw_sql).df()
-            return {**parsed, "result_df": df, "error": None}
+            return {**parsed, "result_df": df, "all_queries": [], "error": None}
 
         except json.JSONDecodeError as e:
             return {"error": f"Không parse được JSON từ LLM: {e}", "sql": raw_sql,
-                    "explanation": "", "chart_type": "none", "result_df": None}
+                    "explanation": "", "chart_type": "none", "result_df": None, "all_queries": []}
         except Exception as e:
             last_error = str(e)
             if attempt == MAX_RETRIES - 1:
                 return {"error": f"SQL thất bại sau {MAX_RETRIES} lần thử: {last_error}",
-                        "sql": raw_sql, "explanation": "", "chart_type": "none", "result_df": None}
+                        "sql": raw_sql, "explanation": "", "chart_type": "none",
+                        "result_df": None, "all_queries": []}
 
     return {"error": "Không thực thi được.", "sql": "", "explanation": "",
-            "chart_type": "none", "result_df": None}
+            "chart_type": "none", "result_df": None, "all_queries": []}
 
 
-# ── Post-execution summarization ──────────────────────────────────────────────
-
-def summarize_result(question: str, df: pd.DataFrame) -> str:
-    """
-    Call LLM to convert raw query results into business insight.
-    Only called when df has data; returns "" on failure.
-    """
+def _summarize_result(question: str, df: pd.DataFrame) -> str:
+    """Fallback-path only: call LLM to generate business insight from raw results."""
     if df is None or df.empty:
         return ""
-
-    # Build compact data preview (max 10 rows to save tokens)
     preview = df.head(10).to_string(index=False)
-    n_total = len(df)
-
-    prompt = (
-        f"Câu hỏi: {question}\n\n"
-        f"Kết quả ({n_total} dòng, hiển thị tối đa 10):\n{preview}"
-    )
+    prompt = f"Câu hỏi: {question}\n\nKết quả ({len(df)} dòng, tối đa 10):\n{preview}"
     try:
-        return _call_llm(
-            [{"role": "user", "content": prompt}],
-            _SYSTEM_SUMMARIZE,
-            max_tokens=300,
-        )
+        return _call_llm([{"role": "user", "content": prompt}], _SYSTEM_SUMMARIZE, max_tokens=300)
     except Exception:
         return ""
 
@@ -269,34 +439,40 @@ def run(
     history: list,
     schema: str,
     con: duckdb.DuckDBPyConnection,
+    on_query: Optional[Callable] = None,
 ) -> dict:
     """
-    Dispatch based on intent, return a unified result dict:
-      {type, text, sql, explanation, chart_type, result_df, summary, error}
+    Dispatch by intent. Returns:
+      {type, text, sql, explanation, chart_type, result_df, all_queries, summary, error}
+
+    DATA_QUERY + Anthropic  → tool_use agentic loop (multi-step, self-correcting)
+    DATA_QUERY + other      → text-based single-shot with retries
     """
+    _empty = {"sql": None, "explanation": None, "chart_type": "none",
+              "result_df": None, "all_queries": [], "summary": None, "error": None}
+
     if intent == "SMALLTALK":
-        text = handle_smalltalk(question)
-        return {"type": "SMALLTALK", "text": text, "sql": None, "explanation": None,
-                "chart_type": "none", "result_df": None, "summary": None, "error": None}
+        return {**_empty, "type": "SMALLTALK", "text": handle_smalltalk(question)}
 
     if intent == "FOLLOWUP":
-        text = handle_followup(question, history)
-        return {"type": "FOLLOWUP", "text": text, "sql": None, "explanation": None,
-                "chart_type": "none", "result_df": None, "summary": None, "error": None}
+        return {**_empty, "type": "FOLLOWUP", "text": handle_followup(question, history)}
 
-    # DATA_QUERY
-    res = generate_and_execute(question, history, schema, con)
-    summary = ""
-    if not res.get("error") and res.get("result_df") is not None:
-        summary = summarize_result(question, res["result_df"])
+    # DATA_QUERY ──────────────────────────────────────────────────────────────
+    if AI_PROVIDER == "anthropic":
+        res = _run_tool_use(question, history, schema, con, on_query=on_query)
+    else:
+        res = _generate_text_based(question, history, schema, con)
+        if not res.get("error") and res.get("result_df") is not None:
+            res["summary"] = _summarize_result(question, res["result_df"])
 
     return {
-        "type":       "DATA_QUERY",
-        "text":       None,
-        "sql":        res.get("sql"),
+        "type":        "DATA_QUERY",
+        "text":        None,
+        "sql":         res.get("sql"),
         "explanation": res.get("explanation"),
-        "chart_type": res.get("chart_type", "none"),
-        "result_df":  res.get("result_df"),
-        "summary":    summary,
-        "error":      res.get("error"),
+        "chart_type":  res.get("chart_type", "none"),
+        "result_df":   res.get("result_df"),
+        "all_queries": res.get("all_queries", []),
+        "summary":     res.get("summary"),
+        "error":       res.get("error"),
     }

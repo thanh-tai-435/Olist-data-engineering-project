@@ -1,16 +1,18 @@
 """Quick smoke test for post-training steps — runs in ~30s without full training."""
 import sys
-import torch
-import mlflow
+
 import matplotlib
+import mlflow
+import torch
+
 matplotlib.use("Agg")
 
 sys.path.insert(0, str(__import__("pathlib").Path(__file__).parents[1]))
 sys.path.insert(0, str(__import__("pathlib").Path(__file__).parent))
 
-from model import ABSAModel, ASPECTS, get_tokenizer
+from model import ASPECTS, ABSAModel, get_tokenizer
+from train_sentiment import DEVICE, log_confusion_matrix, register_model
 from utils import setup_mlflow
-from train_sentiment import log_confusion_matrix, register_model, DEVICE
 
 setup_mlflow()
 mlflow.set_experiment("review-sentiment-absa")

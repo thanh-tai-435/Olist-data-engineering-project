@@ -6,10 +6,11 @@
 # ============================================================
 
 import os
+from typing import Optional
+
 import duckdb
 import pandas as pd
-from typing import Optional
-from config import DUCKDB_PATH, DATA_DIR
+from config import DATA_DIR, DUCKDB_PATH
 
 _conn: Optional[duckdb.DuckDBPyConnection] = None
 

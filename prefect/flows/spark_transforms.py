@@ -6,12 +6,14 @@ SPARK_MASTER (env var) điều khiển mode:
   local[2]                  – mặc định, không cần cluster
   spark://spark-master:7077 – dùng Spark cluster (cần --profile spark)
 """
-import sys
-import os
 import logging
+import os
+import sys
 from pathlib import Path
-from prefect import flow, task, get_run_logger
+
 from prefect.artifacts import create_markdown_artifact
+
+from prefect import flow, get_run_logger, task
 
 # spark/jobs/ được mount vào /app/spark/jobs trong prefect-worker container
 _JOBS_DIR = Path(__file__).parents[1] / "spark" / "jobs"

@@ -7,8 +7,9 @@ Tables tạo ra trong namespace olist.gold:
   dim_sellers     – seller dimension với aggregated metrics
   dim_customers   – customer dimension với CLV metrics
 """
-import os
 import logging
+import os
+
 from pyspark.sql import SparkSession
 from pyspark.sql import functions as F
 from pyspark.sql.window import Window

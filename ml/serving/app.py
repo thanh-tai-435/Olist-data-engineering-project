@@ -10,8 +10,8 @@ Models:
 Internal URL:  http://ml-serving:8080
 External URL:  via Cloudflare Tunnel (see tunnel-urls.txt)
 """
-import os
 import logging
+import os
 from contextlib import asynccontextmanager
 from typing import Optional
 
@@ -125,14 +125,18 @@ def _require(key: str):
 
 
 def _risk_level(p: float) -> str:
-    if p >= 0.7:  return "high"
-    if p >= 0.4:  return "medium"
+    if p >= 0.7:
+        return "high"
+    if p >= 0.4:
+        return "medium"
     return "low"
 
 
 def _recommendation(p: float) -> str:
-    if p >= 0.6:  return "High priority — assign account executive"
-    if p >= 0.3:  return "Medium priority — nurture with email campaign"
+    if p >= 0.6:
+        return "High priority — assign account executive"
+    if p >= 0.3:
+        return "Medium priority — nurture with email campaign"
     return "Low priority — add to general newsletter"
 
 
