@@ -35,7 +35,7 @@ _JARS = ",".join([
     f"{JARS_DIR}/iceberg-aws-bundle-1.5.0.jar",   # AWS SDK v2 cho S3FileIO
     f"{JARS_DIR}/hadoop-aws-3.3.4.jar",
     f"{JARS_DIR}/aws-java-sdk-bundle-1.12.262.jar",
-    f"{JARS_DIR}/openlineage-spark_2.12-1.17.0.jar",
+    f"{JARS_DIR}/openlineage-spark_2.12-1.50.0.jar",
 ])
 
 

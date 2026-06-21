@@ -4,7 +4,7 @@
 set -euo pipefail
 
 JARS_DIR="$(cd "$(dirname "$0")/../spark/jars" && pwd)"
-OL_VERSION="1.17.0"
+OL_VERSION="1.50.0"
 JAR="openlineage-spark_2.12-${OL_VERSION}.jar"
 URL="https://repo1.maven.org/maven2/io/openlineage/openlineage-spark_2.12/${OL_VERSION}/${JAR}"
 
