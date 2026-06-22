@@ -1,0 +1,878 @@
+% ============================================================
+%  SCRIPT NGƯỜI 2 — INGESTION + REDPANDA + PREFECT
+%  Olist Data Lakehouse Platform — 3 phút (3:00 -- 6:00)
+%  Compile: pdflatex -interaction=nonstopmode script_nguoi2.tex
+% ============================================================
+\documentclass[12pt, a4paper]{article}
+
+\usepackage[utf8]{inputenc}
+\usepackage[T5]{fontenc}
+\usepackage[vietnamese]{babel}
+\usepackage[top=2.2cm, bottom=2.2cm, left=2.5cm, right=2.5cm]{geometry}
+\usepackage{parskip}
+\setlength{\parindent}{0pt}
+\usepackage{lmodern}
+\usepackage{microtype}
+\usepackage{setspace}
+\onehalfspacing
+
+% ── Colors ───────────────────────────────────────────────────
+\usepackage[dvipsnames, table, x11names]{xcolor}
+\definecolor{p2color}  {RGB}{5, 150, 105}
+\definecolor{bronze}   {RGB}{180, 103, 40}
+\definecolor{silver}   {RGB}{130, 140, 150}
+\definecolor{gold}     {RGB}{180, 145, 20}
+\definecolor{demoboxbg}{RGB}{15,  23,  42}
+\definecolor{scriptbg} {RGB}{241, 245, 249}
+\definecolor{titlebg}  {RGB}{15,  23,  42}
+\definecolor{warnbg}   {RGB}{255, 251, 235}
+\definecolor{codebg}   {RGB}{30,  41,  59}
+
+% ── Boxes ────────────────────────────────────────────────────
+\usepackage[most]{tcolorbox}
+\tcbuselibrary{breakable, skins, listings}
+
+% Speaker box
+\newenvironment{speakerbox}[2]{%
+  \begin{tcolorbox}[
+    enhanced, breakable,
+    colback=#1!6!white, colframe=#1,
+    colbacktitle=#1, coltitle=white,
+    fonttitle=\bfseries\large,
+    title={#2},
+    arc=4pt, boxrule=1.5pt,
+    left=8pt, right=8pt, top=6pt, bottom=6pt,
+  ]
+}{\end{tcolorbox}}
+
+% Demo action box
+\newtcolorbox{demobox}[1][]{
+  enhanced, breakable,
+  colback=demoboxbg, colframe=cyan!60,
+  coltext=white,
+  fonttitle=\bfseries\small\color{cyan!80},
+  title={DEMO --- Thao tác màn hình},
+  arc=4pt, boxrule=1pt,
+  left=8pt, right=8pt, #1
+}
+
+% Script / speech style
+\newtcolorbox{scriptbox}{
+  enhanced, breakable,
+  colback=scriptbg, colframe=gray!40,
+  arc=3pt, boxrule=0.8pt,
+  left=12pt, right=8pt, leftrule=4pt,
+}
+
+% Code box
+\newtcolorbox{codebox}[1]{
+  enhanced, breakable,
+  colback=codebg, colframe=p2color!60,
+  coltext=white, coltitle=white,
+  fonttitle=\bfseries\small,
+  title={#1},
+  arc=3pt, boxrule=1pt,
+  left=8pt, right=8pt,
+}
+
+% Key point box
+\newtcolorbox{keybox}[1]{
+  enhanced,
+  colback=p2color!8, colframe=p2color!50,
+  coltitle=p2color, fonttitle=\bfseries\small,
+  title={#1},
+  arc=3pt, boxrule=1pt,
+  left=8pt, right=8pt,
+}
+
+% Warning / prep box
+\newtcolorbox{warnbox}[1]{
+  enhanced,
+  colback=warnbg, colframe=orange!60,
+  coltitle=orange!70!black, fonttitle=\bfseries\small,
+  title={#1},
+  arc=3pt, boxrule=1pt,
+  left=8pt, right=8pt,
+}
+
+% ── Helpers ──────────────────────────────────────────────────
+\newcommand{\timing}[1]{\hfill{\small\bfseries\color{gray}[#1]}}
+\newcommand{\hl}[1]{\textbf{\color{p2color}#1}}
+\newcommand{\code}[1]{\texttt{\small#1}}
+
+% ── TikZ ─────────────────────────────────────────────────────
+\usepackage{tikz}
+\usetikzlibrary{arrows.meta, positioning, calc, shapes.geometric, fit, backgrounds}
+\usepackage{fontawesome5}
+\usepackage{booktabs}
+\usepackage{tabularx}
+\usepackage{enumitem}
+\usepackage{multicol}
+
+% ── Hyperref ─────────────────────────────────────────────────
+\usepackage{hyperref}
+\hypersetup{colorlinks=true, linkcolor=p2color, urlcolor=p2color}
+
+% ── Header / Footer ──────────────────────────────────────────
+\usepackage{fancyhdr}
+\pagestyle{fancy}
+\fancyhf{}
+\fancyhead[L]{\small\color{gray}Script Người 2 --- Ingestion + Redpanda + Prefect}
+\fancyhead[R]{\small\color{gray}3:00 -- 6:00 \textbullet\ 3 phút}
+\fancyfoot[C]{\small\color{gray}\thepage}
+\renewcommand{\headrulewidth}{0.4pt}
+
+% ============================================================
+\begin{document}
+% ============================================================
+
+% ── Title ────────────────────────────────────────────────────
+\begin{tikzpicture}[remember picture, overlay]
+  \fill[titlebg]
+    (current page.north west) rectangle
+    ([yshift=-5.5cm]current page.north east);
+  \node[anchor=north, text=white, font=\LARGE\bfseries, yshift=-1.5cm]
+    at (current page.north)
+    {Olist Data Lakehouse --- Script Người 2};
+  \node[anchor=north, text=p2color!80, font=\large, yshift=-2.8cm]
+    at (current page.north)
+    {Ingestion Layer \textbullet\ Redpanda Streaming \textbullet\ Prefect Orchestration};
+  \node[anchor=north, text=white!60, font=\normalsize, yshift=-4.0cm]
+    at (current page.north)
+    {Thời gian: 3:00 -- 6:00 \textbullet\ 3 phút \textbullet\ 2 demo live};
+\end{tikzpicture}
+
+\vspace{6cm}
+
+\begin{warnbox}{\faExclamationTriangle\ Chuẩn bị trước khi lên trình bày}
+\begin{itemize}[leftmargin=1.5em, itemsep=3pt]
+  \item \textbf{Tab Redpanda Console} mở sẵn tại \code{http://localhost:8080}
+        --- topic \code{olist.orders} đã có message
+  \item \textbf{Tab Prefect UI} mở sẵn tại \code{http://localhost:4200}
+        --- có ít nhất 1 flow run \textcolor{green!60!black}{Completed}
+  \item Producer đã chạy: \code{docker exec olist-producer python streaming/producer.py}
+  \item Consumer đã chạy: \code{docker exec olist-consumer python streaming/consumer.py}
+  \item Biết sẵn câu trả lời: ``Tại sao dùng Redpanda mà không dùng Kafka thật?''
+\end{itemize}
+\end{warnbox}
+
+\vspace{0.5cm}
+
+\begin{center}
+\begin{tikzpicture}[x=1cm, y=0.55cm]
+  \draw[line width=2.5pt, gray!30] (0,0) -- (15,0);
+  \fill[p2color!80, rounded corners=2pt] (3,-0.28) rectangle (6,0.28);
+  \fill[gray!30,   rounded corners=2pt] (0,-0.28) rectangle (2.95,0.28);
+  \fill[gray!30,   rounded corners=2pt] (6.05,-0.28) rectangle (15,0.28);
+  \node[text=white, font=\small\bfseries] at (4.5, 0) {Người 2 --- 3'};
+  \node[font=\tiny, gray] at (1.5, 0)  {Người 1};
+  \node[font=\tiny, gray] at (7.5, 0)  {Người 3};
+  \node[font=\tiny, gray] at (12,  0)  {Người 4};
+  \foreach \x in {0,3,...,15} {
+    \draw[gray!50] (\x, -0.5) -- (\x, -0.7);
+    \node[font=\tiny, gray] at (\x, -1.0) {\x'};
+  }
+\end{tikzpicture}
+\end{center}
+
+\newpage
+\tableofcontents
+\newpage
+
+% ============================================================
+\section{Phân bố thời gian chi tiết (3 phút)}
+% ============================================================
+
+\begin{center}
+\renewcommand{\arraystretch}{1.6}
+\begin{tabularx}{\textwidth}{clXl}
+\toprule
+\textbf{Giai đoạn} & \textbf{Thời điểm} & \textbf{Nội dung} & \textbf{Loại} \\
+\midrule
+0 & 3:00 -- 3:10 & Tiếp nhận mic từ Người 1, giới thiệu nhanh phần mình & Lời nói \\
+1 & 3:10 -- 3:40 & Batch ingestion --- CSV $\to$ PyIceberg Bronze & Lời nói + code \\
+2 & 3:40 -- 4:30 & Streaming --- Redpanda + producer/consumer (DEMO) & Demo live \\
+3 & 4:30 -- 5:20 & Prefect UI --- flow run + task graph + quality gate (DEMO) & Demo live \\
+4 & 5:20 -- 5:50 & Tổng kết Ingestion layer + chuyển tiếp & Lời nói \\
+5 & 5:50 -- 6:00 & \textit{Bước đệm, chuẩn bị Người 3 lên} & \textit{Transition} \\
+\bottomrule
+\end{tabularx}
+\end{center}
+
+\begin{keybox}{\faLightbulb\ Mục tiêu của phần này}
+Người xem hiểu \textbf{hai luồng vào cùng một Bronze layer}: batch qua PyIceberg và
+streaming qua Redpanda, không conflict nhờ ACID của Iceberg.
+Và thấy \textbf{Prefect tự động hóa} toàn bộ pipeline với quality gate.
+\end{keybox}
+
+\newpage
+
+% ============================================================
+\section{Giai đoạn 0 --- Tiếp nhận \& Mở đầu (3:00 -- 3:10)}
+% ============================================================
+
+\begin{speakerbox}{p2color}{\faUser\ Người 2 \textbullet\ 3:00 -- 3:10 \textbullet\ Tiếp nhận}
+
+\begin{scriptbox}
+``Cảm ơn bạn. Vậy là chúng ta đã hiểu cách system nhìn tổng thể. Bây giờ phần của
+mình sẽ đi sâu vào \textbf{hai đầu vào của hệ thống} --- dữ liệu vào Bronze
+layer bằng cách nào, và ai điều phối toàn bộ flow.''
+\end{scriptbox}
+
+\end{speakerbox}
+
+% ============================================================
+\section{Giai đoạn 1 --- Batch Ingestion (3:10 -- 3:40)}
+% ============================================================
+
+\begin{speakerbox}{p2color}{\faUser\ Người 2 \textbullet\ 3:10 -- 3:40 \textbullet\ Lời nói}
+
+\subsection*{Nội dung cần nói}
+
+\begin{scriptbox}
+``Luồng đầu tiên --- \textbf{Batch Ingestion}. 8 file CSV gốc của Olist,
+tổng khoảng 200~MB, được đọc bằng Pandas và ghi vào
+\textbf{Bronze layer trên Cloudflare R2} thông qua PyIceberg.
+
+Thiết kế quan trọng nhất của Bronze: \textbf{append-only, immutable}.
+Tức là không bao giờ UPDATE hay DELETE. Nếu source data thay đổi,
+chúng ta \textit{append} snapshot mới. Lịch sử luôn được giữ
+nguyên --- đây là nền tảng của time travel sau này.
+
+Kết quả: 10 Iceberg table trên R2, mỗi table có \texttt{data/} chứa
+Parquet và \texttt{metadata/} chứa snapshots, manifests --- đây là cấu trúc
+của Iceberg Table Format.''
+\end{scriptbox}
+
+\end{speakerbox}
+
+\vspace{0.5em}
+
+\begin{codebox}{\faCode\ prefect/flows/bronze\_ingestion.py --- đoạn key}
+\begin{verbatim}
+@task(retries=3, retry_delay_seconds=30)
+def ingest_dataset(dataset: str, catalog) -> int:
+    table = catalog.load_table(f"bronze.ecom.{dataset}")
+    df = pd.read_csv(f"data/olist_{dataset}_dataset.csv")
+    df = df.where(pd.notna(df), None)   # NaN -> None (Iceberg-safe)
+
+    schema = table.schema()
+    pa_table = pa.Table.from_pandas(df, schema=schema.as_arrow())
+    table.append(pa_table)   # <-- append-only, ACID
+    return len(df)
+
+@flow(name="bronze-batch-ingestion")
+def bronze_batch_flow():
+    catalog = load_catalog("olist", **CATALOG_CONF)
+    datasets = ["orders", "order_items", "customers",
+                "sellers", "products", "payments",
+                "reviews", "geolocation"]
+    for ds in datasets:
+        count = ingest_dataset(ds, catalog)
+        logger.info(f"Ingested {count} rows -> bronze.ecom.{ds}")
+\end{verbatim}
+\end{codebox}
+
+\begin{keybox}{\faKey\ Điểm kỹ thuật cần nhấn mạnh}
+\begin{itemize}[leftmargin=1.5em, itemsep=4pt]
+  \item \code{@task(retries=3)} --- nếu S3/R2 timeout, tự retry, không cần can thiệp thủ công
+  \item \code{table.append(pa\_table)} --- PyIceberg API, không bao giờ dùng raw Parquet write
+  \item \code{df.where(pd.notna(df), None)} --- chuyển NaN sang None, Iceberg không hiểu NaN của pandas
+  \item Bronze table schema đã được tạo sẵn qua PyIceberg schema definition
+\end{itemize}
+\end{keybox}
+
+\newpage
+
+% ============================================================
+\section{Giai đoạn 2 --- Redpanda Streaming (3:40 -- 4:30)}
+% ============================================================
+
+\begin{speakerbox}{p2color}{\faUser\ Người 2 \textbullet\ 3:40 -- 4:30 \textbullet\ DEMO + Lời nói}
+
+\subsection*{[Bước 1] Mở Redpanda Console \timing{3:40 -- 3:55}}
+
+\begin{demobox}
+\begin{enumerate}[leftmargin=1.5em, itemsep=4pt]
+  \item Switch sang tab \textbf{Redpanda Console} (localhost:8080)
+  \item Click menu bên trái: \textbf{Topics} $\to$ click vào \code{olist.orders}
+  \item Thấy danh sách messages --- click một message bất kỳ để xem payload JSON
+  \item Expand JSON ra để thấy \code{order\_id}, \code{customer\_id}, \code{timestamp}
+\end{enumerate}
+\end{demobox}
+
+\begin{scriptbox}
+``Đây là \textbf{Redpanda Console} --- giao diện giám sát broker. Topic
+\code{olist.orders} đang chạy real-time. Nhìn vào một message bất kỳ ---
+\textbf{payload JSON} có \code{order\_id}, \code{customer\_id}, \code{timestamp}.
+
+Message key là \texttt{order\_id} --- điều này đảm bảo tất cả sự kiện
+của cùng một đơn hàng rơi vào cùng một partition --- \textbf{ordering
+guarantee} cho mỗi đơn hàng.''
+\end{scriptbox}
+
+\subsection*{[Bước 2] Giải thích kiến trúc Streaming \timing{3:55 -- 4:15}}
+
+\begin{scriptbox}
+``Redpanda chạy trong một container duy nhất --- không cần Zookeeper, không
+cần JVM. RAM tiêu thụ dưới \textbf{500~MB}, so với Kafka thật cần \textbf{2~GB}.
+API hoàn toàn Kafka-compatible --- code Python dùng \code{confluent-kafka} không cần
+thay đổi một dòng.
+
+\textbf{Producer} (\code{streaming/producer.py}) đọc CSV gốc, sort theo
+\code{order\_purchase\_timestamp}, rồi replay theo thời gian thật với
+\textbf{speed factor 86400} --- tức là 1 ngày lịch sử bằng 1 giây
+real-time. Điều này giúp demo streaming mà không cần chờ thật.
+
+\textbf{Consumer} (\code{streaming/consumer.py}) thuộc consumer group
+\code{iceberg-bronze-writer} --- nhận message và ghi vào cùng Bronze Iceberg
+table với \code{table.append()} --- cùng API với batch, không conflict nhờ
+ACID của Iceberg.''
+\end{scriptbox}
+
+\subsection*{[Bước 3] Giải thích Consumer code \timing{4:15 -- 4:30}}
+
+\begin{scriptbox}
+``Consumer chạy liên tục. Mỗi lần nhận được 50 message, nó flush
+một lần vào Iceberg --- mô hình \textbf{micro-batch} giúp giảm overhead ghi
+và tăng throughput. Nếu consumer restart giữa chừng, Kafka offset đã
+commit --- không mất message, không duplicate.''
+\end{scriptbox}
+
+\end{speakerbox}
+
+\vspace{0.5em}
+
+\begin{codebox}{\faCode\ streaming/producer.py --- Speed replay logic}
+\begin{verbatim}
+SPEED_FACTOR = 86_400   # 1 day of history = 1 second realtime
+
+df = pd.read_csv("data/olist_orders_dataset.csv",
+                 parse_dates=["order_purchase_timestamp"])
+events = df.sort_values("order_purchase_timestamp").itertuples()
+
+prev_ts = None
+for ev in events:
+    if prev_ts is not None:
+        gap = (ev.order_purchase_timestamp - prev_ts
+               ).total_seconds() / SPEED_FACTOR
+        if gap > 0:
+            time.sleep(gap)
+    producer.produce(
+        topic="olist.orders",
+        key=ev.order_id,                     # partition ordering
+        value=json.dumps({
+            "event_type": "order_created",
+            "order_id":   ev.order_id,
+            "customer_id": ev.customer_id,
+            "timestamp":  str(ev.order_purchase_timestamp),
+        }),
+    )
+    producer.poll(0)
+    prev_ts = ev.order_purchase_timestamp
+producer.flush()
+\end{verbatim}
+\end{codebox}
+
+\begin{codebox}{\faCode\ streaming/consumer.py --- Micro-batch flush to Iceberg}
+\begin{verbatim}
+BATCH_SIZE = 50
+consumer = Consumer({
+    "bootstrap.servers": "redpanda:9092",
+    "group.id": "iceberg-bronze-writer",    # consumer group
+    "auto.offset.reset": "earliest",
+})
+consumer.subscribe(["olist.orders"])
+
+buffer = []
+while True:
+    msg = consumer.poll(timeout=1.0)
+    if msg is None:
+        continue
+    payload = json.loads(msg.value())
+    buffer.append(payload)
+
+    if len(buffer) >= BATCH_SIZE:
+        pa_batch = pa.Table.from_pylist(buffer, schema=BRONZE_SCHEMA)
+        iceberg_table.append(pa_batch)   # ACID append to Bronze
+        consumer.commit()                 # commit offset AFTER flush
+        buffer.clear()
+\end{verbatim}
+\end{codebox}
+
+\vspace{0.5em}
+
+% ── Diagram: Streaming Architecture ──────────────────────────
+\begin{tcolorbox}[colback=gray!5, colframe=p2color!50, arc=6pt,
+  title={\faSitemap\ Sơ đồ --- Luồng Streaming vào Bronze Iceberg}]
+\begin{center}
+\begin{tikzpicture}[
+  node distance=0.5cm and 0.9cm,
+  box/.style={
+    draw, rounded corners=4pt, minimum width=2.4cm,
+    minimum height=0.75cm, align=center, font=\small, line width=1pt
+  },
+  arr/.style={-Stealth, line width=1.2pt},
+]
+
+\node[box, fill=gray!15, draw=gray] (csv)
+  {CSV Orders\\{\tiny 100K rows, sorted by ts}};
+
+\node[box, fill=orange!20, draw=orange!70, right=1.0cm of csv] (prod)
+  {\textbf{Producer}\\{\tiny speed factor 86400}};
+
+\node[box, fill=orange!35, draw=orange, right=1.0cm of prod,
+      minimum height=1.3cm] (rp)
+  {\faRss\ \textbf{Redpanda}\\{\tiny topic: olist.orders}\\{\tiny key = order\_id}};
+
+\node[box, fill=green!20, draw=green!60, right=1.0cm of rp,
+      minimum height=1.3cm] (cons)
+  {\textbf{Consumer}\\{\tiny group: iceberg-bronze-writer}\\{\tiny micro-batch=50}};
+
+\node[box, fill=orange!25, draw=orange!80, right=1.0cm of cons,
+      minimum height=1.3cm] (bronze)
+  {\textbf{BRONZE}\\{\tiny Iceberg table}\\{\tiny R2 / S3}};
+
+\draw[arr, gray]       (csv)  -- (prod);
+\draw[arr, orange!80]  (prod) -- node[above, font=\tiny]{produce} (rp);
+\draw[arr, green!60]   (rp)   -- node[above, font=\tiny]{poll} (cons);
+\draw[arr, orange!80]  (cons) -- node[above, font=\tiny]{append} (bronze);
+
+\node[font=\tiny, color=gray,      below=0.1cm of cons]   {commit offset after flush};
+\node[font=\tiny, color=orange!80, below=0.1cm of bronze]  {ACID \textbullet\ append-only};
+\node[font=\tiny, color=gray,      above=0.1cm of prod]    {1 day history = 1s realtime};
+
+\end{tikzpicture}
+\end{center}
+
+\begin{center}
+\small
+\begin{tabular}{lll}
+\toprule
+\textbf{Topic} & \textbf{Key} & \textbf{Consumer Group} \\
+\midrule
+\code{olist.orders}  & \code{order\_id}  & \code{iceberg-bronze-writer} \\
+\code{olist.reviews} & \code{review\_id} & \code{iceberg-bronze-writer} \\
+\code{olist.leads}   & \code{mql\_id}    & \code{iceberg-bronze-writer} \\
+\code{olist.deals}   & \code{mql\_id}    & \code{iceberg-bronze-writer} \\
+\bottomrule
+\end{tabular}
+\end{center}
+\end{tcolorbox}
+
+\newpage
+
+% ============================================================
+\section{Giai đoạn 3 --- Prefect Orchestration (4:30 -- 5:20)}
+% ============================================================
+
+\begin{speakerbox}{p2color}{\faUser\ Người 2 \textbullet\ 4:30 -- 5:20 \textbullet\ DEMO Prefect UI}
+
+\subsection*{[Bước 1] Vào Prefect UI, chọn flow run \timing{4:30 -- 4:45}}
+
+\begin{demobox}
+\begin{enumerate}[leftmargin=1.5em, itemsep=4pt]
+  \item Switch sang tab \textbf{Prefect UI} (localhost:4200)
+  \item Click \textbf{Flow Runs} trên sidebar trái
+  \item Tìm một run tên \code{full-pipeline} có status \textcolor{green!60!black}{\faCheckCircle\ Completed}
+  \item Click vào run đó để mở detail view
+\end{enumerate}
+\end{demobox}
+
+\begin{scriptbox}
+``Đây là \textbf{Prefect UI} --- nơi giám sát toàn bộ pipeline. Mỗi
+hình tròn trên \textbf{Task Graph} này là một task Python. Màu xanh lá là
+\textcolor{green!60!black}{Completed}, màu đỏ là Failed.
+
+Thấy rõ thứ tự: \textbf{Bronze Ingestion} $\to$ \textbf{Soda Check Bronze}
+$\to$ \textbf{Silver Transform} $\to$ \textbf{Soda Check Silver} $\to$
+\textbf{Gold Transform} --- toàn bộ luồng được định nghĩa bằng
+\code{wait\_for} trong Python, không cần YAML, không cần công cụ riêng.''
+\end{scriptbox}
+
+\subsection*{[Bước 2] Click vào Soda Check task \timing{4:45 -- 5:05}}
+
+\begin{demobox}
+\begin{enumerate}[leftmargin=1.5em, itemsep=4pt]
+  \item Trên Task Graph, click vào task có tên \code{soda\_check\_bronze}
+  \item Click tab \textbf{Logs} để xem output của Soda Core
+  \item Đọc một vài dòng log: \textit{``Pass: not\_null check on order\_id...''} v.v.
+  \item Quay lại Task Graph, chỉ vào mũi tên giữa Soda và Silver
+\end{enumerate}
+\end{demobox}
+
+\begin{scriptbox}
+``Task \textbf{Soda Check} là \textbf{quality gate} giữa mỗi layer. Soda Core kiểm tra:
+
+Thứ nhất là \textbf{null rate} --- nếu \code{order\_id} có null, fail ngay.
+Thứ hai là \textbf{row count} --- phải có ít nhất 90 nghìn dòng.
+Thứ ba là \textbf{referential integrity} --- mỗi order phải tồn tại trong bảng
+customers.
+
+Nếu bất kỳ check nào fail, Prefect \textbf{dừng flow lại ngay tại
+đây}, không tiếp tục lên Silver. Và gửi webhook notification ---
+thực tế có thể dùng Slack hay email. Đây là \textbf{data quality as
+code}, không cần kiểm tra thủ công.''
+\end{scriptbox}
+
+\subsection*{[Bước 3] Chỉ Deployments \timing{5:05 -- 5:20}}
+
+\begin{demobox}
+\begin{enumerate}[leftmargin=1.5em, itemsep=3pt]
+  \item Click \textbf{Deployments} trên sidebar
+  \item Chỉ vào schedule \code{Daily 02:00 UTC} của \code{full-pipeline}
+  \item Chỉ nhanh 4 flow có trong hệ thống
+\end{enumerate}
+\end{demobox}
+
+\begin{scriptbox}
+``Trong \textbf{Deployments}, mỗi flow đã được đăng ký với schedule.
+\code{full-pipeline} chạy 2 giờ sáng mỗi ngày. \code{ml-training} chạy hàng
+tuần để retrain model. \code{sentiment-flow} chạy 3 giờ sáng score các
+review mới.
+
+Quan trọng: Prefect Worker chạy trong container
+\code{prefect-worker}, có đủ Python + Spark. Nếu worker bị restart,
+các scheduled flow vẫn chạy bình thường --- Prefect Server giữ
+state riêng.''
+\end{scriptbox}
+
+\end{speakerbox}
+
+\vspace{0.5em}
+
+\begin{codebox}{\faCode\ prefect/flows/full\_pipeline.py --- Flow definition}
+\begin{verbatim}
+from prefect import flow, task
+from prefect.logging import get_run_logger
+
+@task(retries=3, retry_delay_seconds=60)
+def bronze_ingestion_task():
+    from bronze_ingestion import bronze_batch_flow
+    bronze_batch_flow()
+
+@task(retries=2)
+def soda_check_task(layer: str) -> bool:
+    from quality.soda_runner import run_checks
+    result = run_checks(layer)          # returns True if all pass
+    if not result:
+        raise ValueError(f"Soda check FAILED for layer={layer}")
+    return True
+
+@task(retries=2, retry_delay_seconds=30)
+def spark_transform_task(job: str):
+    import subprocess
+    subprocess.run(
+        ["spark-submit", f"spark/jobs/{job}.py"],
+        check=True                      # raise on non-zero exit
+    )
+
+@flow(name="full-pipeline", log_prints=True)
+def full_pipeline():
+    logger = get_run_logger()
+
+    logger.info("Step 1: Bronze ingestion")
+    bronze_ingestion_task()
+
+    logger.info("Step 2: Soda check Bronze")
+    soda_check_task("bronze")           # blocks if fail
+
+    logger.info("Step 3: Silver transform")
+    spark_transform_task("silver_transform")
+
+    logger.info("Step 4: Soda check Silver")
+    soda_check_task("silver")
+
+    logger.info("Step 5: Gold transform")
+    spark_transform_task("gold_transform")
+
+    logger.info("Pipeline complete!")
+\end{verbatim}
+\end{codebox}
+
+\vspace{0.5em}
+
+% ── Diagram: Prefect Flow ─────────────────────────────────────
+\begin{tcolorbox}[colback=gray!5, colframe=p2color!50, arc=6pt,
+  title={\faSitemap\ Sơ đồ --- Prefect Full Pipeline với Quality Gates}]
+\begin{center}
+\begin{tikzpicture}[
+  node distance=0.4cm and 0.8cm,
+  task/.style={
+    draw, rounded corners=4pt, minimum width=2.3cm,
+    minimum height=0.65cm, align=center, font=\small, line width=1pt
+  },
+  gate/.style={
+    diamond, draw, aspect=2.0, minimum width=2.6cm,
+    minimum height=0.5cm, align=center, font=\footnotesize,
+    fill=yellow!20, draw=orange!60, line width=1pt
+  },
+  fail/.style={
+    task, fill=red!15, draw=red!50, font=\footnotesize
+  },
+  arr/.style={-Stealth, line width=1pt},
+  lbl/.style={font=\tiny, color=gray},
+]
+
+\node[task, fill=gray!15, draw=gray]         (start)  {Start};
+\node[task, fill=orange!25, draw=orange!70,
+      right=of start]                         (bronze) {Bronze\\Ingestion};
+\node[gate, right=of bronze]                 (qb)     {Soda\\Bronze?};
+\node[fail, below=0.65cm of qb]             (failb)  {PAUSE\\+ notify};
+\node[task, fill=silver!40, draw=silver!80,
+      right=of qb]                            (silver) {Silver\\Transform};
+\node[gate, right=of silver]                (qs)     {Soda\\Silver?};
+\node[fail, below=0.65cm of qs]             (fails)  {PAUSE\\+ notify};
+\node[task, fill=gold!40, draw=gold!90,
+      right=of qs]                            (gold)   {Gold\\Transform};
+\node[task, fill=green!15, draw=green!60,
+      right=of gold]                          (done)   {\faCheck\ Done};
+
+\draw[arr]              (start)  -- (bronze);
+\draw[arr]              (bronze) -- (qb);
+\draw[arr]              (qb)     -- node[lbl,above]{Pass} (silver);
+\draw[arr, red!50]      (qb)     -- node[lbl,right]{Fail} (failb);
+\draw[arr]              (silver) -- (qs);
+\draw[arr]              (qs)     -- node[lbl,above]{Pass} (gold);
+\draw[arr, red!50]      (qs)     -- node[lbl,right]{Fail} (fails);
+\draw[arr]              (gold)   -- (done);
+
+\draw[dashed, orange!60, -Stealth, thin]
+  (failb.west) to[bend right=50]
+  node[lbl,below]{\tiny retry 3x} (bronze.south);
+
+\node[lbl, above=0.1cm of bronze] {\tiny retries=3};
+\node[lbl, above=0.1cm of silver] {\tiny retries=2};
+\node[lbl, above=0.1cm of gold]   {\tiny retries=2};
+
+\end{tikzpicture}
+\end{center}
+
+\begin{center}
+\small
+\begin{tabular}{lll}
+\toprule
+\textbf{Flow} & \textbf{Mô tả} & \textbf{Schedule} \\
+\midrule
+\code{full-pipeline}  & Bronze $\to$ Silver $\to$ Gold + quality gates & Daily 02:00 UTC \\
+\code{ml-training}    & Retrain 3 XGBoost models                        & Weekly \\
+\code{sentiment-flow} & Score reviews mới bằng BERTimbau                & Daily 03:00 UTC \\
+\code{quality-checks} & Standalone Soda check                            & On-demand \\
+\bottomrule
+\end{tabular}
+\end{center}
+\end{tcolorbox}
+
+\newpage
+
+% ============================================================
+\section{Giai đoạn 4 --- Tổng kết \& Chuyển tiếp (5:20 -- 6:00)}
+% ============================================================
+
+\begin{speakerbox}{p2color}{\faUser\ Người 2 \textbullet\ 5:20 -- 6:00 \textbullet\ Tổng kết}
+
+\subsection*{Tóm tắt Ingestion Layer \timing{5:20 -- 5:45}}
+
+\begin{scriptbox}
+``Tóm lại phần Ingestion: hệ thống có \textbf{hai luồng vào song song}:
+luồng batch qua CSV -- PyIceberg, và luồng streaming qua Redpanda -- Consumer.
+Cả hai được ghi vào cùng Bronze Iceberg table, không conflict nhau,
+vì Iceberg đảm bảo ACID.
+
+Prefect điều phối toàn bộ luồng với quality gate Soda Core ngăn
+data xấu tiếp tục lên Silver. Mỗi task có retry tự động.
+
+Đáng chú ý là toàn bộ phần này \textbf{không có file YAML cấu
+hình} --- mọi thứ là Python thuần, rất dễ test và debug.''
+\end{scriptbox}
+
+\subsection*{Chuyển tiếp sang Người 3 \timing{5:45 -- 6:00}}
+
+\begin{scriptbox}
+``Dữ liệu đã vào Bronze. Bước tiếp theo là \textbf{transform} từ
+Bronze lên Silver rồi Gold --- và \textbf{lineage} để biết dữ liệu
+đã đi qua những bước nào. Mình xin nhường lại lời cho bạn [tên Người 3].''
+\end{scriptbox}
+
+\end{speakerbox}
+
+\newpage
+
+% ============================================================
+\section{Câu hỏi thường gặp --- Q\&A Chuẩn bị}
+% ============================================================
+
+\begin{tcolorbox}[colback=gray!5, colframe=gray!50, arc=4pt,
+  title={\faQuestion\ 7 câu hỏi thầy cô hay hỏi}]
+
+\textbf{Q1: Tại sao dùng Redpanda mà không dùng Kafka thật?}
+
+\begin{scriptbox}
+``Redpanda Kafka-compatible hoàn toàn --- code Python không cần thay đổi.
+Điểm khác biệt: Redpanda chạy trong 1 container, không cần Zookeeper,
+không cần JVM --- tiêu thụ dưới 500~MB RAM so với Kafka cần 2~GB+.
+Với quy mô đồ án sinh viên, Redpanda giúp deploy đơn giản hơn rất nhiều.''
+\end{scriptbox}
+
+\textbf{Q2: Tại sao Bronze append-only? Nếu source data sai thì sao?}
+
+\begin{scriptbox}
+``Bronze là \textbf{immutable raw data} --- giữ lại đúng những gì hệ thống
+ngoài gửi vào. Nếu source sai, chúng ta append bản sửa lên Bronze,
+rồi Silver MERGE INTO sẽ dùng bản mới nhất. Bronze giữ toàn bộ
+lịch sử để audit.''
+\end{scriptbox}
+
+\textbf{Q3: Nếu Consumer chết giữa chừng thì message có mất không?}
+
+\begin{scriptbox}
+``Không. Consumer chỉ \code{commit offset} sau khi đã \code{flush} thành
+công vào Iceberg. Nếu crash trước commit, lần restart tiếp theo
+consumer sẽ đọc lại từ offset cũ --- \textbf{at-least-once delivery}.
+Iceberg ACID loại duplicate nếu cần.''
+\end{scriptbox}
+
+\textbf{Q4: Prefect khác gì Airflow?}
+
+\begin{scriptbox}
+``Prefect dùng Python decorator \code{@flow} / \code{@task} --- viết như
+code Python bình thường, không cần DAG class hay YAML cấu hình.
+Prefect Cloud có free tier, mới nên không cần tự host UI.
+Airflow nặng hơn, cần server riêng, cú pháp DAG phức tạp hơn.''
+\end{scriptbox}
+
+\textbf{Q5: Quality gate Soda Core kiểm tra cụ thể những gì?}
+
+\begin{scriptbox}
+``Ba loại check chính:
+(1) \textbf{Completeness}: not\_null trên các khóa chính (\code{order\_id}, \code{customer\_id}).
+(2) \textbf{Volume}: row\_count phải \code{>= 90000} --- phát hiện trường hợp mất data.
+(3) \textbf{Referential}: mỗi \code{order\_id} trong \code{order\_items} phải có trong \code{orders}.''
+\end{scriptbox}
+
+\textbf{Q6: Tại sao không dùng dbt thay vì PySpark cho Silver/Gold?}
+
+\begin{scriptbox}
+``dbt đã bị loại khỏi dự án. Lý do: dbt cần adapter riêng cho
+Iceberg, thêm toolchain phức tạp. PySpark đọc/ghi Iceberg native qua
+\code{spark-iceberg} extension, cùng engine xử lý cả small và TB-scale.
+Không cần thêm dependency.''
+\end{scriptbox}
+
+\textbf{Q7: Hệ thống này scale lên production thật được không?}
+
+\begin{scriptbox}
+``Được. Thay Cloudflare R2 bằng AWS S3, thêm Spark cluster (master +
+workers) thay cho \code{local[2]}, thêm Kafka cluster thay Redpanda. Các
+abstraction lớp trên (PyIceberg, confluent-kafka, PySpark) giữ nguyên ---
+không thay đổi code.''
+\end{scriptbox}
+
+\end{tcolorbox}
+
+\newpage
+
+% ============================================================
+\section{Cheat Sheet --- Tóm tắt 1 trang}
+% ============================================================
+
+\begin{multicols}{2}
+
+\begin{keybox}{\faBolt\ Batch Ingestion}
+\begin{itemize}[leftmargin=1em, itemsep=2pt, topsep=2pt]
+  \item 8 CSV $\to$ Pandas $\to$ PyIceberg
+  \item \code{table.append(pa\_table)} --- ACID
+  \item \code{@task(retries=3)} --- tự retry
+  \item Bronze: append-only, immutable
+  \item 10 Iceberg tables trên R2
+\end{itemize}
+\end{keybox}
+
+\columnbreak
+
+\begin{keybox}{\faRss\ Redpanda Streaming}
+\begin{itemize}[leftmargin=1em, itemsep=2pt, topsep=2pt]
+  \item 1 container, không Zookeeper
+  \item Kafka-compatible API
+  \item \textless500~MB RAM vs Kafka 2~GB
+  \item Speed factor 86400 (demo)
+  \item Key = order\_id (partition order)
+  \item Micro-batch flush 50 msgs
+\end{itemize}
+\end{keybox}
+
+\end{multicols}
+
+\begin{multicols}{2}
+
+\begin{keybox}{\faTasks\ Prefect Orchestration}
+\begin{itemize}[leftmargin=1em, itemsep=2pt, topsep=2pt]
+  \item \code{@flow} + \code{@task} --- Python thuần
+  \item \code{wait\_for} = dependency graph
+  \item \code{retries=3} mỗi task
+  \item Schedule Daily 02:00 UTC
+  \item Prefect Cloud free tier UI
+\end{itemize}
+\end{keybox}
+
+\columnbreak
+
+\begin{keybox}{\faShieldAlt\ Soda Core Quality Gate}
+\begin{itemize}[leftmargin=1em, itemsep=2pt, topsep=2pt]
+  \item Check sau mỗi layer Bronze/Silver
+  \item Null check, row count, referential
+  \item Fail $\to$ PAUSE flow, không lên Silver
+  \item Webhook notification khi fail
+\end{itemize}
+\end{keybox}
+
+\end{multicols}
+
+\vspace{0.8em}
+
+% ── Mini pipeline diagram ─────────────────────────────────────
+\begin{center}
+\begin{tikzpicture}[
+  node distance=0.2cm and 0.5cm,
+  s/.style={draw, rounded corners=3pt, minimum width=1.9cm,
+    minimum height=0.55cm, align=center, font=\small, line width=0.8pt},
+  a/.style={-Stealth, line width=0.8pt},
+  g/.style={diamond, draw=orange!60, fill=yellow!20, aspect=1.8,
+    minimum height=0.45cm, font=\tiny, align=center},
+]
+\node[s, fill=gray!15, draw=gray]       (csv)   {CSV};
+\node[s, fill=orange!20, draw=orange!70, right=0.5cm of csv]  (rp)  {Redpanda};
+\node[s, fill=orange!25, draw=orange!80, right=0.5cm of rp]   (bz)  {Bronze\\Iceberg};
+\node[g, right=0.5cm of bz]                                   (qb)  {Soda\\OK?};
+\node[s, fill=silver!40, draw=silver!80, right=0.5cm of qb]   (sv)  {Silver\\PySpark};
+\node[g, right=0.5cm of sv]                                   (qs)  {Soda\\OK?};
+\node[s, fill=gold!40, draw=gold!90,    right=0.5cm of qs]    (gd)  {Gold\\PySpark};
+\node[s, fill=green!15, draw=green!60,  right=0.5cm of gd]    (out) {BI / ML};
+
+\draw[a] (csv) -- (rp);
+\draw[a] (rp)  -- (bz);
+\draw[a] (bz)  -- (qb);
+\draw[a] (qb)  -- node[font=\tiny,above]{Pass} (sv);
+\draw[a] (sv)  -- (qs);
+\draw[a] (qs)  -- node[font=\tiny,above]{Pass} (gd);
+\draw[a] (gd)  -- (out);
+
+\node[font=\tiny, color=gray,      below=0.08cm of bz] {append-only};
+\node[font=\tiny, color=gray,      below=0.08cm of sv] {MERGE INTO};
+\node[font=\tiny, color=gray,      below=0.08cm of gd] {partitioned};
+\end{tikzpicture}
+\end{center}
+
+\vspace{1em}
+\begin{center}
+\small\color{gray}
+Script Người 2 --- Olist Data Lakehouse \textbullet\
+Liên quan: \code{streaming/producer.py} \textbullet\
+\code{streaming/consumer.py} \textbullet\
+\code{prefect/flows/full\_pipeline.py} \textbullet\
+\code{quality/soda\_runner.py}
+\end{center}
+
+% ============================================================
+\end{document}
+% ============================================================

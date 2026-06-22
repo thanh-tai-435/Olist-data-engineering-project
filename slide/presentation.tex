@@ -1,0 +1,374 @@
+% ============================================================
+%  OLIST DATA LAKEHOUSE — BEAMER PRESENTATION
+%  Compile: pdflatex -interaction=nonstopmode presentation.tex
+%  (run twice for correct cross-references)
+% ============================================================
+\documentclass[aspectratio=169, 12pt]{beamer}
+
+% ── Encoding & Language ──────────────────────────────────────
+\usepackage[utf8]{inputenc}
+\usepackage[T5]{fontenc}
+\usepackage[vietnamese]{babel}
+\usepackage{lmodern}
+
+% ── TikZ (only for 3 decorative frames: title, mucluc, closing) ──
+\usepackage{tikz}
+\usetikzlibrary{calc}
+
+% ── Icons / Tables ────────────────────────────────────────────
+\usepackage{fontawesome5}
+\usepackage{booktabs}
+\usepackage{tabularx}
+\usepackage{enumitem}
+
+% ── Beamer chrome off ─────────────────────────────────────────
+\setbeamertemplate{navigation symbols}{}
+
+% ── Color palette ─────────────────────────────────────────────
+\definecolor{deepblue}{RGB}{30,  58, 138}
+\definecolor{midblue} {RGB}{37,  99, 235}
+\definecolor{pillblue}{RGB}{59, 130, 246}
+\definecolor{lightblu}{RGB}{96, 165, 250}
+\definecolor{bgslide} {RGB}{239,246,255}
+\definecolor{strblu}  {RGB}{147,197,253}
+\definecolor{txtgray} {RGB}{100,116,139}
+
+% ── Beamer theme colors ───────────────────────────────────────
+\setbeamercolor{background canvas}{bg=bgslide}
+\setbeamercolor{frametitle}{fg=white, bg=deepblue}
+\setbeamercolor{normal text}{fg=deepblue}
+\setbeamercolor{itemize item}{fg=midblue}
+\setbeamercolor{enumerate item}{fg=midblue}
+\setbeamercolor{block title}{fg=white, bg=midblue}
+\setbeamercolor{block body}{bg=midblue!10}
+
+% ── Beamer frametitle template ────────────────────────────────
+\setbeamertemplate{frametitle}{%
+  \nointerlineskip%
+  \begin{beamercolorbox}[wd=\paperwidth, ht=0.85cm, dp=0.15cm,
+    leftskip=0.5cm]{frametitle}%
+    \usebeamerfont{frametitle}\insertframetitle%
+  \end{beamercolorbox}%
+}
+\setbeamerfont{frametitle}{size=\large, series=\bfseries}
+
+% ── Beamer footline ───────────────────────────────────────────
+\setbeamertemplate{footline}{%
+  \begin{beamercolorbox}[wd=\paperwidth, ht=0.45cm, dp=0.1cm,
+    leftskip=0.4cm, rightskip=0.4cm]{normal text}%
+    {\tiny\color{txtgray}Olist Data Lakehouse \textbullet\
+     Apache Iceberg \textbullet\ Groq + LLaMA~3.3-70B}%
+    \hfill%
+    {\tiny\color{txtgray}\insertframenumber\,/\,\inserttotalframenumber}%
+  \end{beamercolorbox}%
+}
+
+% ── Left accent bar on all slides (via background) ───────────
+\setbeamertemplate{background}{%
+  \begin{tikzpicture}
+    \useasboundingbox (0,0) rectangle (\paperwidth,\paperheight);
+    \fill[midblue] (0,0) rectangle (0.22cm,\paperheight);
+  \end{tikzpicture}%
+}
+
+% ============================================================
+%  REUSABLE MACROS
+% ============================================================
+
+%% Diagonal stripes (inside a tikzpicture already open, no remember picture needed)
+%% Draws 6 parallelogram stripes from NE corner
+%% Caller must be inside tikzpicture[remember picture, overlay]
+\newcommand{\stripesBG}{%
+  \fill[strblu, opacity=0.20]
+    ($(current page.north east)+(-0.30cm,0)$)
+    -- ($(current page.north east)+(0.55cm,0)$)
+    -- ($(current page.south east)+(3.75cm,0)$)
+    -- ($(current page.south east)+(2.90cm,0)$) -- cycle;
+  \fill[strblu, opacity=0.15]
+    ($(current page.north east)+(-1.25cm,0)$)
+    -- ($(current page.north east)+(-0.40cm,0)$)
+    -- ($(current page.south east)+(2.80cm,0)$)
+    -- ($(current page.south east)+(1.95cm,0)$) -- cycle;
+  \fill[strblu, opacity=0.11]
+    ($(current page.north east)+(-2.20cm,0)$)
+    -- ($(current page.north east)+(-1.35cm,0)$)
+    -- ($(current page.south east)+(1.85cm,0)$)
+    -- ($(current page.south east)+(1.00cm,0)$) -- cycle;
+  \fill[strblu, opacity=0.07]
+    ($(current page.north east)+(-3.15cm,0)$)
+    -- ($(current page.north east)+(-2.30cm,0)$)
+    -- ($(current page.south east)+(0.90cm,0)$)
+    -- ($(current page.south east)+(0.05cm,0)$) -- cycle;
+  \fill[strblu, opacity=0.04]
+    ($(current page.north east)+(-4.10cm,0)$)
+    -- ($(current page.north east)+(-3.25cm,0)$)
+    -- ($(current page.south east)+(-0.05cm,0)$)
+    -- ($(current page.south east)+(-0.90cm,0)$) -- cycle;
+}
+
+%% Single pill — INLINE TikZ (no remember picture, no overlay)
+%% Usage: \pill{num}{TEXT}
+\newcommand{\pill}[2]{%
+  \begin{tikzpicture}[baseline=0.1ex]%
+    \fill[pillblue, rounded corners=6pt]
+      (0,-0.38cm) rectangle (4.4cm,0.38cm);
+    \fill[midblue, rounded corners=6pt]
+      (0,-0.38cm) rectangle (0.88cm,0.38cm);
+    \fill[deepblue]
+      (0.44cm,0) circle (0.31cm);
+    \node[text=white, font=\fontsize{7}{7}\selectfont\bfseries]
+      at (0.44cm,0) {#2};
+    \node[text=white, font=\fontsize{6.0}{7}\selectfont\bfseries,
+          anchor=west, text width=3.2cm, align=left]
+      at (0.88cm,0) {#1};%
+  \end{tikzpicture}%
+}
+
+%% Section divider slide command (NO TikZ overlay, pure Beamer)
+\newcommand{\sectionslide}[3]{%
+  \begin{frame}[plain, c]
+  \setbeamertemplate{footline}{}%
+  \begin{beamercolorbox}[wd=\paperwidth, ht=\paperheight, center]{background canvas}%
+  \begin{columns}[c]
+    \column{0.62\textwidth}
+    \hspace{0.8cm}%
+    \begin{minipage}{0.9\linewidth}
+      {\fontsize{22}{26}\selectfont\bfseries\color{deepblue}#2\par}%
+      \vspace{6pt}%
+      {\fontsize{11}{13}\selectfont\color{pillblue}#3}%
+    \end{minipage}
+    \column{0.38\textwidth}
+    \hfill%
+    {\fontsize{90}{90}\selectfont\bfseries\color{midblue!18}#1}%
+    \hspace{0.3cm}%
+  \end{columns}%
+  \vspace{0.2cm}%
+  {\color{midblue!40}\rule{\paperwidth}{0.8pt}}%
+  \end{beamercolorbox}%
+  \end{frame}%
+}
+
+% ============================================================
+\begin{document}
+% ============================================================
+
+% ── 0. TITLE SLIDE — TikZ overlay (1 of 3 overlay frames) ────
+\begin{frame}[plain]
+\setbeamertemplate{footline}{}%
+\setbeamertemplate{background}{}%
+\begin{tikzpicture}[remember picture, overlay]
+  \fill[bgslide] (current page.south west) rectangle (current page.north east);
+  \stripesBG
+  % top bar
+  \fill[deepblue]
+    (current page.north west) rectangle
+    ($(current page.north east)+(0,-0.50cm)$);
+  % left bar
+  \fill[deepblue]
+    (current page.south west) rectangle
+    ($(current page.north west)+(0.45cm,0)$);
+  % course text
+  \node[text=white, font=\fontsize{8}{8}\selectfont, anchor=west]
+    at ($(current page.north west)+(0.65cm,-0.28cm)$)
+    {Nh\`{a} Kho D\~{u} Li\d{e}u v\`{a} T\'{i}ch H\d{o}p};
+  % main title
+  \node[text=deepblue, font=\fontsize{26}{30}\selectfont\bfseries,
+        anchor=center, text width=12cm, align=center]
+    at ($(current page.center)+(0, 1.2cm)$)
+    {Olist Data Lakehouse Platform};
+  % rule
+  \draw[midblue, line width=2pt]
+    ($(current page.center)+(-5.0cm,0.45cm)$) --
+    ($(current page.center)+( 5.0cm,0.45cm)$);
+  % subtitle
+  \node[text=pillblue, font=\fontsize{13}{16}\selectfont,
+        anchor=center, text width=11cm, align=center]
+    at ($(current page.center)+(0,-0.2cm)$)
+    {End-to-end Data Engineering on Apache Iceberg};
+  % tagline
+  \node[text=txtgray, font=\fontsize{9}{12}\selectfont,
+        anchor=center, text width=14cm, align=center]
+    at ($(current page.center)+(0,-1.3cm)$)
+    {Medallion Architecture \textbullet\
+     Batch \& Streaming \textbullet\
+     PySpark \textbullet\
+     MLflow \textbullet\
+     Groq + LLaMA~3.3-70B};
+  % footer line
+  \node[text=txtgray, font=\fontsize{8}{8}\selectfont, anchor=south]
+    at ($(current page.south)+(0,0.3cm)$)
+    {Olist Brazilian E-Commerce \textbullet\
+     100K orders \textbullet\ Cloudflare R2 \textbullet\ Apache Iceberg};
+\end{tikzpicture}
+\end{frame}
+
+
+% ── 1. MỤC LỤC — TikZ overlay (2 of 3 overlay frames) ───────
+\begin{frame}[plain]
+\setbeamertemplate{footline}{}%
+\setbeamertemplate{background}{}%
+\begin{tikzpicture}[remember picture, overlay]
+  \fill[bgslide] (current page.south west) rectangle (current page.north east);
+  \stripesBG
+  % left bar
+  \fill[midblue]
+    (current page.south west) rectangle
+    ($(current page.north west)+(0.28cm,0)$);
+  % dashed separator
+  \draw[midblue!35, line width=0.6pt, dashed]
+    ($(current page.center)+(-3.05cm, 3.7cm)$) --
+    ($(current page.center)+(-3.05cm,-3.7cm)$);
+  % "MỤC LỤC" text
+  \node[text=deepblue, font=\fontsize{30}{34}\selectfont\bfseries,
+        anchor=center, align=center]
+    at ($(current page.center)+(-5.5cm, 0.4cm)$)
+    {M\d{U}C\\L\d{U}C};
+  \node[text=pillblue, font=\fontsize{8}{10}\selectfont,
+        anchor=center, align=center]
+    at ($(current page.center)+(-5.5cm,-1.7cm)$)
+    {10 n\d{o}i dung ch\'{i}nh};
+\end{tikzpicture}
+%
+% Pills via INLINE TikZ (no remember picture — avoids grouping overflow)
+\hspace*{3.25cm}%
+\begin{minipage}[c][7.6cm][c]{11.8cm}
+\begin{columns}[T]
+  \column{0.49\textwidth}
+  \pill{GI\H{O}I THI\d{E}U B\`{A}I TO\'{A}N}{1}\\[4pt]
+  \pill{DATASET DESCRIPTION}{2}\\[4pt]
+  \pill{SYSTEM ARCHITECTURE}{3}\\[4pt]
+  \pill{DATA INGESTION LAYER}{4}\\[4pt]
+  \pill{STORAGE LAYER}{5}
+
+  \column{0.49\textwidth}
+  \pill{DATA TRANSFORMATION}{6}\\[4pt]
+  \pill{ORCHESTRATION}{7}\\[4pt]
+  \pill{MACHINE LEARNING LAYER}{8}\\[4pt]
+  \pill{BI \& AGENTIC AI}{9}\\[4pt]
+  \pill{SYSTEM EVALUATION \& FUTURE DEV.}{10}
+\end{columns}
+\end{minipage}
+\end{frame}
+
+
+% ============================================================
+%  SECTION DIVIDER SLIDES (pure Beamer, NO TikZ overlay)
+% ============================================================
+
+\sectionslide{1}{Gi\H{o}i Thi\d{e}u B\`{a}i To\'{a}n}
+  {Problem Statement \textbullet\ Motivation \textbullet\ Scope}
+
+\sectionslide{2}{Dataset Description}
+  {Olist Brazilian E-Commerce \textbullet\ 100K orders \textbullet\ 10 tables}
+
+\sectionslide{3}{System Architecture}
+  {Lambda Architecture \textbullet\ Medallion (Bronze / Silver / Gold)}
+
+\sectionslide{4}{Data Ingestion Layer}
+  {Batch CSV \textbullet\ Redpanda Streaming \textbullet\ PyIceberg Bronze}
+
+\sectionslide{5}{Storage Layer}
+  {Apache Iceberg \textbullet\ Cloudflare R2 \textbullet\ ACID \textbullet\ Time Travel}
+
+\sectionslide{6}{Data Transformation}
+  {PySpark Silver (MERGE INTO) \textbullet\ Gold Aggregation}
+
+\sectionslide{7}{Orchestration}
+  {Prefect Flows \textbullet\ Quality Gates \textbullet\ Soda Core}
+
+\sectionslide{8}{Machine Learning Layer}
+  {MLflow \textbullet\ XGBoost \textbullet\ Delivery / Churn / Lead Scoring}
+
+\sectionslide{9}{BI \& Agentic AI}
+  {Groq + LLaMA~3.3-70B \textbullet\ DuckDB \textbullet\ Streamlit Chat}
+
+\sectionslide{10}{System Evaluation \& Future Development}
+  {CI/CD \textbullet\ OpenLineage \textbullet\ Scalability \textbullet\ Next Steps}
+
+
+% ============================================================
+%  SAMPLE CONTENT SLIDES (pure Beamer frametitle)
+% ============================================================
+
+\begin{frame}[t]{1.\ Gi\H{o}i Thi\d{e}u B\`{a}i To\'{a}n}
+\begin{columns}[T]
+  \column{0.48\textwidth}
+  \textbf{\color{midblue}B\`{a}i to\'{a}n:}
+  \begin{itemize}[leftmargin=1.2em, itemsep=4pt]
+    \item X\h{u} l\'{y} d\~{u} li\d{e}u \textbf{real-time} v\`{a}
+          \textbf{batch} c\`{u}ng l\'{u}c kh\^{o}ng conflict
+    \item Ph\d{u}c v\d{u} c\h{a} BI l\~{a}n ML t\d{u} c\`{u}ng ngu\`{o}n
+    \item Rollback \dj{}\h{u}\d{o}c khi pipeline l\~{o}i
+    \item Scale l\^{e}n TB-scale trong t\h{u}\o{}ng lai
+  \end{itemize}
+
+  \column{0.48\textwidth}
+  \textbf{\color{midblue}Gi\h{a}i ph\'{a}p:}
+  \begin{itemize}[leftmargin=1.2em, itemsep=4pt]
+    \item \textbf{Lambda Architecture:} batch + streaming song song
+    \item \textbf{Medallion:} Bronze $\to$ Silver $\to$ Gold
+    \item \textbf{Apache Iceberg:} ACID, time travel, schema evolution
+    \item \textbf{Prefect:} quality gate + retry
+  \end{itemize}
+\end{columns}
+\end{frame}
+
+
+\begin{frame}[t]{9.\ BI \& Agentic AI --- Groq + LLaMA~3.3-70B}
+\begin{columns}[T]
+  \column{0.54\textwidth}
+  \textbf{\color{midblue}Pipeline (4 phases):}
+  \begin{enumerate}[leftmargin=1.2em, itemsep=3pt]
+    \item \textbf{Intent Classify} --- Groq:
+          DATA / FOLLOWUP / SMALLTALK
+    \item \textbf{SQL Generation} --- LLaMA 3.3-70B
+          sinh \texttt{\{sql, chart\_type\}}
+    \item \textbf{DuckDB Execute} --- Gold Iceberg in-memory views
+    \item \textbf{Summarize} --- Groq sinh 2--3 c\^{a}u insight
+  \end{enumerate}
+  \vspace{4pt}
+  {\small\color{txtgray}
+   Self-correction: retry t\h{o}i \dj{a} 3 l\`{a}n khi SQL l\~{o}i}
+
+  \column{0.42\textwidth}
+  \begin{block}{\faRobot\ Stack}
+    \fontsize{9}{12}\selectfont
+    \textbf{Model:} llama-3.3-70b-versatile\\
+    \textbf{Provider:} Groq API (LPU)\\
+    \textbf{Speed:} {<}1s / query\\
+    \textbf{Data:} 5 Gold Iceberg tables\\
+    \textbf{Charts:} Plotly auto-select
+  \end{block}
+\end{columns}
+\end{frame}
+
+
+% ── CLOSING — TikZ overlay (3 of 3 overlay frames) ───────────
+\begin{frame}[plain]
+\setbeamertemplate{footline}{}%
+\setbeamertemplate{background}{}%
+\begin{tikzpicture}[remember picture, overlay]
+  \fill[deepblue] (current page.south west) rectangle (current page.north east);
+  \stripesBG
+  \node[text=white, font=\fontsize{28}{32}\selectfont\bfseries,
+        anchor=center, align=center]
+    at ($(current page.center)+(0, 0.9cm)$)
+    {C\h{a}m \o{}n Th\`{a}y/C\^{o} v\`{a} c\'{a}c b\d{a}n!};
+  \draw[white!30, line width=1.5pt]
+    ($(current page.center)+(-4.5cm, 0.2cm)$) --
+    ($(current page.center)+( 4.5cm, 0.2cm)$);
+  \node[text=lightblu, font=\fontsize{13}{16}\selectfont,
+        anchor=center]
+    at ($(current page.center)+(0,-0.55cm)$)
+    {Xin m\`{o}i Th\`{a}y/C\^{o} \dj\d{a}t c\^{a}u h\h{o}i};
+  \node[text=white!50, font=\fontsize{8}{10}\selectfont,
+        anchor=south, align=center]
+    at ($(current page.south)+(0,0.35cm)$)
+    {Apache Iceberg \textbullet\ Groq + LLaMA~3.3-70B \textbullet\
+     Prefect \textbullet\ MLflow \textbullet\ Cloudflare R2};
+\end{tikzpicture}
+\end{frame}
+
+% ============================================================
+\end{document}
+% ============================================================

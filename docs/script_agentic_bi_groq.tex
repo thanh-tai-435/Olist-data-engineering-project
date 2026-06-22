@@ -1,0 +1,1104 @@
+% ============================================================
+%  SCRIPT CHI TIẾT — AGENTIC BI (GROQ + LLAMA 3.3-70B)
+%  Olist Data Lakehouse Platform
+%  Compile: pdflatex -interaction=nonstopmode script_agentic_bi_groq.tex
+% ============================================================
+\documentclass[12pt, a4paper]{article}
+
+% ── Encoding & Language ──────────────────────────────────────
+\usepackage[utf8]{inputenc}
+\usepackage[T5]{fontenc}
+\usepackage[vietnamese]{babel}
+
+% ── Layout ───────────────────────────────────────────────────
+\usepackage[top=2.2cm, bottom=2.2cm, left=2.5cm, right=2.5cm]{geometry}
+\usepackage{parskip}
+\setlength{\parindent}{0pt}
+
+% ── Typography ───────────────────────────────────────────────
+\usepackage{lmodern}
+\usepackage{microtype}
+\usepackage{setspace}
+\onehalfspacing
+
+% ── Color ────────────────────────────────────────────────────
+\usepackage[dvipsnames, table, x11names]{xcolor}
+\definecolor{bronze}{RGB}{180, 103, 40}
+\definecolor{silver}{RGB}{130, 140, 150}
+\definecolor{gold}{RGB}{180, 145, 20}
+\definecolor{groqgreen}{RGB}{0, 174, 114}
+\definecolor{llamapurple}{RGB}{124, 58, 237}
+\definecolor{demobox}{RGB}{15, 23, 42}
+\definecolor{scriptbg}{RGB}{241, 245, 249}
+\definecolor{titlebg}{RGB}{10, 15, 35}
+\definecolor{codebg}{RGB}{30, 30, 46}
+\definecolor{p4color}{RGB}{220, 38, 38}
+\definecolor{intentblue}{RGB}{37, 99, 235}
+\definecolor{sqlorange}{RGB}{234, 88, 12}
+\definecolor{duckdbgold}{RGB}{200, 160, 0}
+\definecolor{insightgreen}{RGB}{5, 150, 105}
+
+% ── Boxes ────────────────────────────────────────────────────
+\usepackage[most]{tcolorbox}
+\tcbuselibrary{breakable, skins, listings}
+
+% Speaker box
+\newenvironment{speakerbox}[2]{%
+  \begin{tcolorbox}[
+    enhanced, breakable,
+    colback=#1!6!white, colframe=#1,
+    colbacktitle=#1, coltitle=white,
+    fonttitle=\bfseries\large,
+    title={#2}, arc=4pt, boxrule=1.5pt,
+    left=8pt, right=8pt, top=6pt, bottom=6pt,
+  ]
+}{\end{tcolorbox}}
+
+% Demo action box
+\newtcolorbox{demobox}[1][]{
+  enhanced, breakable,
+  colback=demobox, colframe=cyan!60, coltext=white,
+  fonttitle=\bfseries\small\color{cyan!80},
+  title={DEMO — Thao tác màn hình},
+  arc=4pt, boxrule=1pt, left=8pt, right=8pt, #1
+}
+
+% Script box
+\newtcolorbox{scriptbox}{
+  enhanced, breakable,
+  colback=scriptbg, colframe=gray!40,
+  arc=3pt, boxrule=0.8pt,
+  left=12pt, right=8pt, leftrule=4pt,
+}
+
+% Code box (dark)
+\newtcolorbox{codebox}[1][]{
+  enhanced, breakable,
+  colback=codebg, colframe=groqgreen!60, coltext=white,
+  fonttitle=\bfseries\small\color{groqgreen},
+  arc=4pt, boxrule=1pt, left=8pt, right=8pt,
+  #1
+}
+
+% Phase box
+\newtcolorbox{phasebox}[2]{
+  enhanced,
+  colback=#1!8!white, colframe=#1,
+  colbacktitle=#1, coltitle=white,
+  fonttitle=\bfseries\normalsize,
+  title={#2}, arc=5pt, boxrule=1.2pt,
+  left=8pt, right=8pt,
+}
+
+% Timing badge
+\newcommand{\timing}[1]{%
+  \hfill{\small\bfseries\color{gray}[#1]}%
+}
+
+% Phase label
+\newcommand{\phaselabel}[2]{%
+  \noindent\textcolor{#1}{\rule{4pt}{12pt}}\hspace{4pt}%
+  \textbf{\textcolor{#1}{#2}}%
+}
+
+% ── Graphics & TikZ ──────────────────────────────────────────
+\usepackage{tikz}
+\usetikzlibrary{
+  arrows.meta, positioning, fit, shapes.geometric,
+  shapes.multipart, calc, backgrounds, shadows,
+  decorations.pathreplacing, matrix, chains
+}
+
+% ── Tables ───────────────────────────────────────────────────
+\usepackage{booktabs}
+\usepackage{tabularx}
+\usepackage{multirow}
+\usepackage{array}
+
+% ── Code listings ─────────────────────────────────────────────
+\usepackage{listings}
+\lstset{
+  basicstyle=\ttfamily\footnotesize\color{white},
+  keywordstyle=\color{groqgreen!90},
+  stringstyle=\color{yellow!80},
+  commentstyle=\color{gray!60},
+  backgroundcolor=\color{codebg},
+  frame=none, xleftmargin=8pt, xrightmargin=4pt,
+  breaklines=true, breakatwhitespace=true,
+  showstringspaces=false,
+}
+
+% ── Misc ─────────────────────────────────────────────────────
+\usepackage{enumitem}
+\usepackage{fontawesome5}
+\usepackage{hyperref}
+\hypersetup{colorlinks=true, linkcolor=groqgreen, urlcolor=groqgreen}
+
+% ── Header / Footer ──────────────────────────────────────────
+\usepackage{fancyhdr}
+\pagestyle{fancy}
+\fancyhf{}
+\fancyhead[L]{\small\color{gray}Agentic BI — Groq + LLaMA 3.3-70B}
+\fancyhead[R]{\small\color{gray}Olist Data Lakehouse}
+\fancyfoot[C]{\small\color{gray}\thepage}
+\renewcommand{\headrulewidth}{0.4pt}
+
+% ============================================================
+\begin{document}
+% ============================================================
+
+% ── Title Page ───────────────────────────────────────────────
+\begin{titlepage}
+\begin{tikzpicture}[remember picture, overlay]
+  \fill[titlebg] (current page.north west) rectangle
+    ([yshift=-8cm]current page.north east);
+  % Groq accent stripe
+  \fill[groqgreen!80] ([yshift=-8cm]current page.north west)
+    rectangle ([yshift=-8.3cm]current page.north east);
+
+  \node[anchor=north, text=white, font=\Huge\bfseries,
+        yshift=-1.8cm] at (current page.north)
+    {Agentic BI};
+  \node[anchor=north, text=groqgreen!90, font=\Large\bfseries,
+        yshift=-3.2cm] at (current page.north)
+    {Groq API $\cdot$ LLaMA 3.3-70B Versatile};
+  \node[anchor=north, text=white!70, font=\large,
+        yshift=-4.5cm] at (current page.north)
+    {Natural Language $\rightarrow$ SQL $\rightarrow$ Insight};
+  \node[anchor=north, text=cyan!60, font=\normalsize,
+        yshift=-5.7cm] at (current page.north)
+    {Text-based SQL Pipeline $\cdot$ DuckDB $\cdot$ Gold Iceberg $\cdot$ Streamlit};
+\end{tikzpicture}
+
+\vspace{9cm}
+
+\begin{tcolorbox}[
+  colback=groqgreen!8, colframe=groqgreen!60,
+  arc=6pt, boxrule=1.2pt
+]
+\renewcommand{\arraystretch}{1.6}
+\begin{tabularx}{\textwidth}{lX}
+\toprule
+\textbf{Thành phần} & \textbf{Chi tiết} \\
+\midrule
+LLM Provider    & \textbf{Groq API} — LPU inference, sub-second latency \\
+Model           & \texttt{llama-3.3-70b-versatile} \\
+Mode            & Text-based SQL (JSON output, self-correction retries) \\
+Query Engine    & DuckDB in-memory — đọc trực tiếp từ Gold Iceberg tables \\
+Frontend        & Streamlit — chat UI + Plotly chart \\
+Intent Classes  & \texttt{DATA\_QUERY} · \texttt{FOLLOWUP} · \texttt{SMALLTALK} \\
+Self-correction & Tối đa 3 lần retry với error context \\
+Post-insight    & Groq gọi thêm 1 lần để sinh 2--3 câu business insight \\
+\bottomrule
+\end{tabularx}
+\end{tcolorbox}
+
+\vfill
+\begin{center}
+\small\color{gray}
+Olist Data Lakehouse Platform — Script Thuyết Trình Chi Tiết
+\end{center}
+\end{titlepage}
+
+\tableofcontents
+\newpage
+
+% ============================================================
+\section{Tổng quan — Agentic BI với Groq}
+% ============================================================
+
+\subsection{Vị trí trong hệ thống}
+
+Agentic BI là \textbf{layer cuối cùng} trong Medallion pipeline — nhận Gold tables
+(đã aggregate và partitioned) và cho phép người dùng hỏi bằng ngôn ngữ tự nhiên
+thay vì viết SQL thủ công.
+
+\begin{center}
+\begin{tikzpicture}[
+  node distance=0.5cm and 1.0cm,
+  box/.style={draw, rounded corners=4pt, minimum width=2.4cm,
+              minimum height=0.8cm, align=center, font=\small, line width=1pt},
+  arr/.style={-Stealth, line width=1.5pt},
+]
+\node[box, fill=bronze!25, draw=bronze]              (b) {BRONZE\\{\tiny Iceberg}};
+\node[box, fill=silver!40, draw=silver!80, right=of b] (s) {SILVER\\{\tiny PySpark}};
+\node[box, fill=gold!40,   draw=gold!90,  right=of s] (g) {GOLD\\{\tiny 5 tables}};
+\node[box, fill=groqgreen!20, draw=groqgreen, right=1.5cm of g,
+      minimum width=3.0cm] (bi)
+  {\textbf{Agentic BI}\\{\tiny Groq + DuckDB}};
+
+\draw[arr, bronze]      (b) -- (s);
+\draw[arr, silver!80]   (s) -- (g);
+\draw[arr, groqgreen]   (g) -- node[font=\tiny, above]{NL query} (bi);
+
+\node[font=\footnotesize, color=groqgreen, below=0.2cm of bi]
+  {Streamlit UI · Chat interface};
+\end{tikzpicture}
+\end{center}
+
+\subsection{Tại sao Groq?}
+
+\begin{tcolorbox}[colback=groqgreen!5, colframe=groqgreen!50, arc=5pt]
+\renewcommand{\arraystretch}{1.4}
+\begin{tabularx}{\textwidth}{>{\bfseries}p{3.5cm} X}
+\toprule
+Điểm mạnh & Lý do chọn \\
+\midrule
+Tốc độ siêu nhanh &
+  Groq LPU (Language Processing Unit) — không phải GPU, thiết kế chuyên biệt
+  cho inference. Output token: $>$500 tok/s vs GPU $\sim$60 tok/s. \\
+Free tier đủ dùng &
+  6000 req/ngày, 500K token/phút — không tốn chi phí cho demo và prototype. \\
+LLaMA 3.3-70B &
+  Open-weight model Meta, hỗ trợ tiếng Việt tốt, giỏi sinh SQL,
+  context 128K token. \\
+OpenAI-compatible &
+  API \texttt{/v1/chat/completions} — dùng chung \texttt{requests.post}, không cần SDK riêng. \\
+\bottomrule
+\end{tabularx}
+\end{tcolorbox}
+
+\newpage
+
+% ============================================================
+\section{Kiến trúc Pipeline — 4 Phase}
+% ============================================================
+
+\begin{tcolorbox}[colback=gray!5, colframe=groqgreen!50, arc=6pt,
+  title={\faSitemap\ Sơ đồ — Groq Agentic BI: Text-based SQL Pipeline}]
+
+\begin{center}
+\begin{tikzpicture}[
+  node distance=0.45cm and 0.85cm,
+  box/.style={
+    draw, rounded corners=5pt, minimum width=2.8cm,
+    minimum height=0.85cm, align=center, font=\small, line width=1pt
+  },
+  phase/.style={
+    draw, rounded corners=3pt, minimum width=1.0cm,
+    minimum height=0.5cm, align=center, font=\tiny\bfseries,
+    fill=white, line width=0.8pt
+  },
+  arr/.style={-Stealth, line width=1.3pt},
+  darr/.style={-Stealth, line width=0.8pt, dashed},
+]
+
+% ── Row 1: main happy path ────────────────────────────────────
+\node[box, fill=gray!15, draw=gray]               (user)
+  {User\\{\tiny câu hỏi NL}};
+
+\node[box, fill=intentblue!15, draw=intentblue,
+      right=of user]                               (intent)
+  {Intent Classifier\\{\tiny Groq — classify}};
+
+\node[box, fill=sqlorange!20, draw=sqlorange,
+      right=of intent]                             (llm)
+  {LLaMA 3.3-70B\\{\tiny Groq API → JSON}};
+
+\node[box, fill=duckdbgold!30, draw=duckdbgold,
+      right=of llm]                                (duck)
+  {DuckDB\\{\tiny execute SQL}};
+
+\node[box, fill=insightgreen!20, draw=insightgreen,
+      right=of duck]                               (insight)
+  {Summarize\\{\tiny Groq 2nd call}};
+
+\node[box, fill=groqgreen!15, draw=groqgreen,
+      right=of insight]                            (render)
+  {Streamlit\\{\tiny chart + insight}};
+
+% ── Phase labels (above) ──────────────────────────────────────
+\node[phase, draw=intentblue, text=intentblue,
+      above=0.6cm of intent] (p1l) {Phase 1};
+\node[phase, draw=sqlorange, text=sqlorange,
+      above=0.6cm of llm]    (p2l) {Phase 2};
+\node[phase, draw=duckdbgold, text=duckdbgold,
+      above=0.6cm of duck]   (p3l) {Phase 3};
+\node[phase, draw=insightgreen, text=insightgreen,
+      above=0.6cm of insight] (p4l) {Phase 4};
+
+\draw[dotted, intentblue]  (p1l) -- (intent);
+\draw[dotted, sqlorange]   (p2l) -- (llm);
+\draw[dotted, duckdbgold]  (p3l) -- (duck);
+\draw[dotted, insightgreen](p4l) -- (insight);
+
+% ── Happy path arrows ─────────────────────────────────────────
+\draw[arr, gray]          (user)    -- (intent);
+\draw[arr, intentblue]    (intent)  -- node[font=\tiny,above]{DATA\_QUERY} (llm);
+\draw[arr, sqlorange]     (llm)     -- node[font=\tiny,above]{JSON} (duck);
+\draw[arr, duckdbgold]    (duck)    -- node[font=\tiny,above]{df} (insight);
+\draw[arr, insightgreen]  (insight) -- (render);
+
+% ── Self-correction loop ──────────────────────────────────────
+\node[box, fill=red!10, draw=red!50,
+      below=1.2cm of duck]                        (retry)
+  {Self-correct\\{\tiny retry với error msg}};
+
+\draw[darr, red!60]  (duck.south)  -- node[font=\tiny,right]{ERROR} (retry.north);
+\draw[darr, red!60]  (retry.west)  to[bend right=30]
+                     node[font=\tiny,below]{fix SQL (max 3x)} (llm.south);
+
+% ── Smalltalk / Followup shortcuts ───────────────────────────
+\node[box, fill=llamapurple!15, draw=llamapurple,
+      below=1.2cm of intent]                      (small)
+  {SMALLTALK /\\FOLLOWUP};
+
+\draw[darr, llamapurple]  (intent.south)  --
+      node[font=\tiny,right]{other} (small.north);
+\draw[darr, llamapurple]  (small.east)   to[bend left=20]  (render.south);
+
+% ── Gold Iceberg ──────────────────────────────────────────────
+\node[box, fill=gold!30, draw=gold!80,
+      below=1.2cm of llm]                         (gold)
+  {Gold Iceberg\\{\tiny 5 tables · PyIceberg}};
+
+\draw[darr, gold!70]  (gold.east) to[bend right=20]
+      node[font=\tiny,below]{schema ctx} (llm.south);
+\draw[darr, gold!70]  (gold.east) to[bend left=10]  (duck.south);
+
+% ── Retry counter badge ───────────────────────────────────────
+\node[draw=red!40, fill=red!5, rounded corners=2pt,
+      font=\tiny, right=0.3cm of retry]
+  {attempt 1/2/3};
+
+\end{tikzpicture}
+\end{center}
+
+\begin{center}
+\small
+\begin{tabular}{clll}
+\toprule
+Phase & Tên & Groq Call & Output \\
+\midrule
+1 & Intent Classify  & \texttt{classify\_intent()} — Groq     & DATA\_QUERY / FOLLOWUP / SMALLTALK \\
+2 & SQL Generation   & \texttt{\_generate\_text\_based()} — Groq   & JSON \texttt{\{sql, explanation, chart\_type\}} \\
+3 & Execute          & DuckDB in-memory (không gọi Groq)   & \texttt{pd.DataFrame} \\
+4 & Summarize        & \texttt{\_summarize\_result()} — Groq       & 2--3 câu business insight \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\end{tcolorbox}
+
+\newpage
+
+% ============================================================
+\section{Phase 1 — Intent Classification}
+% ============================================================
+
+\begin{phasebox}{intentblue}{\faTag\ Phase 1: Intent Classification}
+
+Trước khi gọi SQL pipeline, hệ thống phân loại câu hỏi thành một trong ba loại:
+
+\vspace{0.5em}
+\begin{tabularx}{\textwidth}{>{\bfseries\ttfamily}p{3.2cm} X p{2.5cm}}
+\toprule
+Intent & Xử lý & Ví dụ \\
+\midrule
+DATA\_QUERY    & Chạy full SQL pipeline (Phase 2 → 4) &
+  ``Doanh thu theo tháng?'' \\
+FOLLOWUP       & Groq trả lời dựa trên lịch sử chat, không query DB &
+  ``Sao bang SP lại cao vậy?'' \\
+SMALLTALK      & Groq trả lời trực tiếp, không query DB &
+  ``Bạn là AI gì?'' \\
+\bottomrule
+\end{tabularx}
+
+\vspace{0.8em}
+
+\textbf{Cách hoạt động:} \texttt{classify\_intent()} gọi Groq với system prompt
+mô tả ba intent và rules. LLaMA 3.3-70B trả về một từ:
+\texttt{DATA\_QUERY}, \texttt{FOLLOWUP}, hoặc \texttt{SMALLTALK}.
+Nếu parse lỗi, mặc định fallback về \texttt{DATA\_QUERY}.
+
+\end{phasebox}
+
+% ============================================================
+\section{Phase 2 — SQL Generation (Groq LLaMA 3.3-70B)}
+% ============================================================
+
+\begin{phasebox}{sqlorange}{\faBolt\ Phase 2: SQL Generation — Text-based JSON}
+
+\subsection*{System Prompt Strategy}
+
+Thay vì dùng native \textbf{Tool Use API} (như Anthropic), Groq path dùng
+\textbf{text-based prompting}: yêu cầu LLM trả về \textit{thuần JSON},
+sau đó parse bằng Python.
+
+\vspace{0.5em}
+
+\textbf{System prompt bao gồm:}
+\begin{itemize}[leftmargin=1.5em, itemsep=3pt]
+  \item Luật SQL: chỉ SELECT, tự thêm \texttt{LIMIT 1000}, tên bảng available
+  \item Schema đầy đủ 5 Gold tables (tên cột, kiểu dữ liệu) — inject lúc runtime
+  \item Quy tắc chart type: \texttt{bar/line/pie/scatter/none}
+  \item \textbf{6 few-shot examples} (Q/A pair) — giúp LLM học pattern SQL chuẩn
+  \item Luật đặc biệt cho sentiment table (\texttt{review\_sentiment}) — không dùng
+        \texttt{review\_score} để suy ra sentiment
+  \item Format output: JSON thuần, không markdown, không dấu backtick
+\end{itemize}
+
+\vspace{0.5em}
+
+\textbf{Output format mong đợi:}
+\begin{codebox}[title={JSON output từ LLaMA 3.3-70B}]
+\begin{verbatim}
+{
+  "sql": "SELECT customer_state, COUNT(*) AS orders ...",
+  "explanation": "Top 10 bang có nhiều đơn hàng nhất.",
+  "chart_type": "bar"
+}
+\end{verbatim}
+\end{codebox}
+
+\subsection*{Few-shot Examples (trích từ code)}
+
+\begin{codebox}[title={Ví dụ few-shot trong system prompt}]
+\begin{verbatim}
+Q: Doanh thu theo tháng năm 2018?
+A: {"sql": "SELECT strftime(purchased_at, '%Y-%m') AS month,
+    ROUND(SUM(payment_value),2) AS revenue_brl FROM fct_orders
+    WHERE purchased_at >= '2018-01-01' AND purchased_at < '2019-01-01'
+    GROUP BY 1 ORDER BY 1",
+    "explanation": "Tổng doanh thu BRL theo tháng 2018.",
+    "chart_type": "line"}
+
+Q: Tỷ lệ các loại thanh toán?
+A: {"sql": "SELECT payment_type, COUNT(*) AS cnt FROM fct_orders
+    WHERE payment_type IS NOT NULL GROUP BY payment_type ORDER BY cnt DESC",
+    "explanation": "Số đơn hàng theo phương thức thanh toán.",
+    "chart_type": "pie"}
+\end{verbatim}
+\end{codebox}
+
+\end{phasebox}
+
+\newpage
+
+% ============================================================
+\section{Phase 3 — DuckDB Execution \& Self-correction}
+% ============================================================
+
+\begin{phasebox}{duckdbgold}{\faDatabase\ Phase 3: Execute + Self-correction Loop}
+
+\subsection*{DuckDB In-memory Views}
+
+DuckDB đọc dữ liệu trực tiếp từ Gold Iceberg tables thông qua PyIceberg:
+
+\begin{enumerate}[leftmargin=1.5em, itemsep=4pt]
+  \item PyIceberg load 5 Gold tables → Arrow format
+  \item Đăng ký mỗi table thành \textbf{DuckDB in-memory view}
+        (\texttt{con.register("fct\_orders", df)})
+  \item SQL từ LLaMA chạy trực tiếp trên views — không cần Spark, không cần Trino
+  \item Kết quả trả về \texttt{pd.DataFrame} trong vài milliseconds
+\end{enumerate}
+
+\vspace{0.8em}
+
+\subsection*{Self-correction Loop (tối đa 3 lần)}
+
+\begin{center}
+\begin{tikzpicture}[
+  node distance=0.4cm and 1.2cm,
+  corrbox/.style={draw, rounded corners=4pt, minimum width=3.5cm,
+               minimum height=0.75cm, align=center, font=\small, line width=1pt},
+  arr/.style={-Stealth, line width=1.2pt},
+]
+\node[corrbox, fill=sqlorange!20, draw=sqlorange] (gen)
+  {LLM sinh JSON \& SQL\\{\tiny attempt 1}};
+
+\node[corrbox, fill=duckdbgold!25, draw=duckdbgold, right=of gen] (exec)
+  {DuckDB execute};
+
+\node[corrbox, fill=insightgreen!20, draw=insightgreen, right=of exec] (ok)
+  {\faCheck\ Success\\{\tiny return DataFrame}};
+
+\node[corrbox, fill=red!15, draw=red!50, below=1.0cm of exec] (fail)
+  {SQL Error\\{\tiny parse error / column not found}};
+
+\node[corrbox, fill=sqlorange!15, draw=sqlorange!70,
+      left=of fail] (fix)
+  {Retry Groq\\{\tiny SQL + error msg}};
+
+\draw[arr, sqlorange]  (gen)  -- (exec);
+\draw[arr, duckdbgold] (exec) -- node[font=\tiny,above]{OK} (ok);
+\draw[arr, red!60]     (exec) -- node[font=\tiny,right]{ERROR} (fail);
+\draw[arr, red!60]     (fail) -- (fix);
+\draw[arr, sqlorange]  (fix)  to[bend left=30]
+      node[font=\tiny,above]{retry} (exec);
+
+\node[font=\tiny, color=red!60, below=0.2cm of fail]
+  {Sau 3 lần: trả lỗi về UI};
+\end{tikzpicture}
+\end{center}
+
+\vspace{0.5em}
+
+\textbf{Fix prompt} khi SQL lỗi:
+\begin{codebox}[title={Self-correction prompt gửi cho Groq}]
+\begin{verbatim}
+SQL sau gặp lỗi khi thực thi trên DuckDB:
+
+SQL: SELECT seller_id, AVG(review_score) ...
+Lỗi: Binder Error: "review_score" not found. Did you mean "avg_review_score"?
+
+Hãy sửa lại SQL. Chỉ trả về JSON (không markdown):
+{"sql": "...", "explanation": "...", "chart_type": "..."}
+\end{verbatim}
+\end{codebox}
+
+\end{phasebox}
+
+% ============================================================
+\section{Phase 4 — Business Insight Summarization}
+% ============================================================
+
+\begin{phasebox}{insightgreen}{\faLightbulb\ Phase 4: Summarize Result}
+
+Sau khi DuckDB trả về DataFrame, Groq được gọi \textbf{lần thứ hai} để sinh
+2--3 câu business insight:
+
+\begin{itemize}[leftmargin=1.5em, itemsep=4pt]
+  \item Input: câu hỏi gốc + top 10 dòng đầu từ DataFrame
+  \item Output: 2--3 câu tiếng Việt, nêu số liệu cụ thể với đơn vị đầy đủ
+  \item Quy tắc: không dùng ``có thể'', ``dường như'', ``khoảng'' — chỉ fact cứng
+  \item Tiền BRL: format ``X,XX tỷ R\$'' / ``X,XX triệu R\$''
+  \item Highlight giá trị cao nhất / thấp nhất / bất thường
+\end{itemize}
+
+\vspace{0.5em}
+\textbf{Ví dụ output:}
+\begin{tcolorbox}[colback=insightgreen!8, colframe=insightgreen, arc=4pt]
+\textit{``São Paulo dẫn đầu với 41.746 đơn hàng, chiếm 41,6\% tổng số đơn
+toàn quốc. Rio de Janeiro đứng thứ 2 với 12.852 đơn --- cách biệt gần 3,3x
+so với SP. Hai bang này cộng lại đã chiếm hơn 54\% thị phần đơn hàng Olist.''}
+\end{tcolorbox}
+
+\end{phasebox}
+
+\newpage
+
+% ============================================================
+\section{Script Demo Chi Tiết}
+% ============================================================
+
+\begin{speakerbox}{p4color}{\faUser\ Người 4 · Phần Agentic BI (khoảng 2 phút)}
+
+\subsection*{[Mở Streamlit Agentic BI] \timing{11:30 -- 13:30}}
+
+\begin{demobox}
+\textbf{Chuẩn bị:}
+\begin{itemize}[leftmargin=1.5em, itemsep=2pt]
+  \item Đảm bảo \texttt{AI\_PROVIDER=groq} và \texttt{GROQ\_API\_KEY} đã set trong \texttt{.env}
+  \item Mở \texttt{http://localhost:8501} $\to$ chọn page \textbf{Olist Agentic BI}
+  \item Sidebar sẽ hiển thị: \texttt{LLM: llama-3.3-70b-versatile} và \texttt{Mode: Text-based SQL}
+  \item 5 Gold tables đều phải có dấu \textcolor{green!60!black}{\faCheckCircle} trong sidebar
+\end{itemize}
+\end{demobox}
+
+\vspace{0.5em}
+
+\subsubsection*{Demo 1 — Câu hỏi đơn: Top doanh thu theo bang \timing{11:30 -- 12:10}}
+
+\begin{demobox}
+\textbf{Gõ vào chat input:}
+\begin{quote}
+\textit{``Top 10 bang có doanh thu cao nhất năm 2018?''}
+\end{quote}
+\textbf{Quan sát:}
+\begin{enumerate}[leftmargin=1.5em, itemsep=2pt]
+  \item Spinner ``Đang xử lý...'' hiện ra $\to$ ``Phân tích câu hỏi và sinh SQL...''
+  \item Sau $\sim$1 giây (Groq rất nhanh): tag \texttt{DATA QUERY} xanh lam xuất hiện
+  \item Click expand \textbf{SQL} để show câu query được sinh ra
+  \item Bar chart xuất hiện bên dưới
+  \item Insight text: 2--3 câu về doanh thu SP, RJ, MG
+\end{enumerate}
+\end{demobox}
+
+\begin{scriptbox}
+``Đây là \textbf{Agentic BI} --- chat interface để hỏi dữ liệu Olist bằng tiếng Việt
+thay vì viết SQL.
+
+Backend dùng \textbf{Groq API} với model \textbf{LLaMA 3.3-70B} --- open-weight model
+của Meta, chạy trên phần cứng LPU của Groq, nhanh hơn GPU thông thường từ 5--10 lần.
+
+(expand SQL) Nhìn vào đây --- LLM tự sinh câu GROUP BY, tự filter năm 2018, tự ORDER BY
+revenue, tự chọn bar chart vì đây là bài toán ranking. Nhóm em không hard-code gì ---
+toàn bộ logic SQL đến từ model.
+
+Kết quả: São Paulo dẫn đầu xa --- gấp hơn 3 lần Rio de Janeiro. Đây là insight
+business thực tế từ 100 nghìn đơn hàng thật.''
+\end{scriptbox}
+
+\subsubsection*{Demo 2 — So sánh tỷ lệ giao trễ \timing{12:10 -- 12:50}}
+
+\begin{demobox}
+\textbf{Gõ tiếp vào chat:}
+\begin{quote}
+\textit{``So sánh tỷ lệ giao trễ giữa các phương thức thanh toán''}
+\end{quote}
+\textbf{Quan sát:}
+\begin{enumerate}[leftmargin=1.5em, itemsep=2pt]
+  \item SQL sinh ra sẽ có \texttt{CASE WHEN delivery\_status='late' THEN 1 ELSE 0 END}
+  \item Chart type: bar (so sánh danh mục)
+  \item Insight: phương thức nào có tỷ lệ trễ cao nhất?
+\end{enumerate}
+\end{demobox}
+
+\begin{scriptbox}
+``Câu hỏi lần này phức tạp hơn --- cần tính tỷ lệ phần trăm. LLM tự sinh
+\texttt{CASE WHEN} để tính late orders, rồi chia cho total để ra tỷ lệ.
+
+Đây là điểm quan trọng: người dùng không cần biết schema, không cần biết
+\texttt{delivery\_status='late'} là cột gì hay bảng nào. LLM đọc schema context
+và tự điền vào.
+
+Nếu SQL sai --- ví dụ tên cột không đúng --- hệ thống \textbf{tự retry} tối đa
+3 lần, mỗi lần gửi lại error message cho Groq để sửa. Người dùng không thấy
+gì --- chỉ thấy kết quả cuối cùng.''
+\end{scriptbox}
+
+\subsubsection*{Demo 3 — Follow-up câu hỏi \timing{12:50 -- 13:30}}
+
+\begin{demobox}
+\textbf{Gõ tiếp (không cần context mới):}
+\begin{quote}
+\textit{``Phương thức nào đáng lo ngại nhất? Tại sao?''}
+\end{quote}
+\textbf{Quan sát:}
+\begin{enumerate}[leftmargin=1.5em, itemsep=2pt]
+  \item Tag \texttt{FOLLOW-UP} màu xanh lá xuất hiện (không phải DATA QUERY)
+  \item \textbf{Không có SQL} --- Groq trả lời dựa trên kết quả câu trước trong history
+  \item Câu trả lời phân tích narrative từ data đã có
+\end{enumerate}
+\end{demobox}
+
+\begin{scriptbox}
+``Câu này không có SQL mới --- hệ thống nhận diện đây là \textbf{FOLLOWUP} intent,
+chỉ cần diễn giải data cũ.
+
+Groq đọc lịch sử 10 tin nhắn gần nhất và trả lời như một analyst --- nêu cụ thể
+phương thức nào và con số tỷ lệ, không bịa số mới.
+
+Ba intent class này --- DATA\_QUERY, FOLLOWUP, SMALLTALK --- cho phép hệ thống
+\textbf{không lãng phí} Groq call vào database khi không cần thiết,
+đồng thời duy trì context conversation tự nhiên.''
+\end{scriptbox}
+
+\end{speakerbox}
+
+\newpage
+
+% ============================================================
+\section{Sơ đồ Chi Tiết — Groq Text-based vs Claude Tool Use}
+% ============================================================
+
+\begin{tcolorbox}[colback=gray!5, colframe=gray!40, arc=6pt,
+  title={\faSitemap\ So sánh hai chế độ: Groq (Text-based) vs Claude (Tool Use)}]
+
+\begin{center}
+\begin{tikzpicture}[
+  node distance=0.4cm and 0.7cm,
+  box/.style={draw, rounded corners=4pt, minimum width=2.6cm,
+              minimum height=0.75cm, align=center, font=\footnotesize, line width=1pt},
+  arr/.style={-Stealth, line width=1.1pt},
+  darr/.style={-Stealth, line width=0.8pt, dashed},
+  label/.style={font=\tiny, color=gray},
+]
+
+% ── Groq path (top row) ───────────────────────────────────────
+\node[font=\small\bfseries\color{groqgreen}] (gLabel)
+  at (0, 2.5) {Groq (AI\_PROVIDER=groq)};
+
+\node[box, fill=groqgreen!15, draw=groqgreen]
+  (g_user) at (0, 1.6) {User Question};
+\node[box, fill=sqlorange!20, draw=sqlorange,
+      right=of g_user]    (g_llm)  {Groq LLaMA\\{\tiny → JSON}};
+\node[box, fill=duckdbgold!25, draw=duckdbgold,
+      right=of g_llm]     (g_duck) {DuckDB\\{\tiny execute}};
+\node[box, fill=insightgreen!20, draw=insightgreen,
+      right=of g_duck]    (g_sum)  {Groq 2nd\\{\tiny summarize}};
+\node[box, fill=groqgreen!15, draw=groqgreen,
+      right=of g_sum]     (g_out)  {Result\\{\tiny chart+insight}};
+
+\draw[arr, groqgreen]   (g_user) -- (g_llm);
+\draw[arr, sqlorange]   (g_llm)  -- node[label,above]{\{sql,chart\}} (g_duck);
+\draw[arr, duckdbgold]  (g_duck) -- node[label,above]{df} (g_sum);
+\draw[arr, insightgreen](g_sum)  -- (g_out);
+
+% Self-correction annotation
+\node[font=\tiny, color=red!60, below=0.15cm of g_duck]
+  {\faSync\ retry x3 on error};
+
+% ── Claude path (bottom row) ──────────────────────────────────
+\node[font=\small\bfseries\color{blue!70}] (cLabel)
+  at (0, -0.3) {Claude (AI\_PROVIDER=anthropic)};
+
+\node[box, fill=blue!10, draw=blue!60]
+  (c_user) at (0, -1.1) {User Question};
+\node[box, fill=purple!15, draw=purple!60,
+      right=of c_user]   (c_claude) {Claude\\{\tiny Tool Use API}};
+\node[box, fill=orange!20, draw=orange!60,
+      right=of c_claude] (c_tool)   {query\_db\\{\tiny tool call}};
+\node[box, fill=duckdbgold!25, draw=duckdbgold,
+      right=of c_tool]   (c_duck)   {DuckDB};
+\node[box, fill=blue!10, draw=blue!60,
+      right=of c_duck]   (c_out)    {Result\\{\tiny + insight}};
+
+\draw[arr, blue!60]    (c_user)   -- (c_claude);
+\draw[arr, purple!60]  (c_claude) -- node[label,above]{tool\_use} (c_tool);
+\draw[arr, orange!60]  (c_tool)   -- (c_duck);
+\draw[arr, duckdbgold] (c_duck)   to[bend right=20]
+      node[label,below]{tool\_result} (c_claude);
+\draw[arr, blue!60]    (c_claude) -- (c_out);
+
+\node[font=\tiny, color=purple!70, below=0.15cm of c_claude]
+  {agentic loop: multi-call, self-corrects natively};
+
+% ── Divider ───────────────────────────────────────────────────
+\draw[gray!40, line width=1pt, dashed]
+  (-1.5, 0.55) -- (12.5, 0.55);
+
+\end{tikzpicture}
+\end{center}
+
+\vspace{0.5em}
+\renewcommand{\arraystretch}{1.5}
+\begin{tabularx}{\textwidth}{>{\bfseries}p{3.5cm}XX}
+\toprule
+ & \textcolor{groqgreen}{\bfseries Groq (Text-based)} & \textcolor{blue!70}{\bfseries Claude (Tool Use)} \\
+\midrule
+Số Groq/Claude call & 2 (generate + summarize) & 1+ (agentic loop) \\
+Multi-query & Không (single-shot) & Có (gọi tool nhiều lần) \\
+Self-correction & Explicit retry loop & Native (thấy ERROR trong tool result) \\
+Chi phí & Free tier đủ dùng & $\sim$\$0.02/câu hỏi \\
+Tốc độ đầu tiên & $<$1s (LPU) & 2--3s \\
+Complex analysis & Hạn chế (1 query) & Mạnh (multi-step) \\
+Code dependency & Chỉ \texttt{requests} & \texttt{anthropic} SDK \\
+Fallback mode & Mặc định nếu không có \texttt{ANTHROPIC\_KEY} & Cần \texttt{ANTHROPIC\_API\_KEY} \\
+\bottomrule
+\end{tabularx}
+
+\end{tcolorbox}
+
+\newpage
+
+% ============================================================
+\section{Code Reference — Đường đi thực tế}
+% ============================================================
+
+\subsection{Config — Chọn provider}
+
+\begin{codebox}[title={bi/config.py — Groq settings}]
+\begin{verbatim}
+# .env
+AI_PROVIDER = groq
+GROQ_API_KEY = gsk_xxxxxxxxxxxxxxxxxxxx
+GROQ_MODEL   = llama-3.3-70b-versatile   # default
+
+# config.py reads env and exposes:
+AI_PROVIDER  = "groq"
+GROQ_KEY     = "gsk_..."
+GROQ_MODEL   = "llama-3.3-70b-versatile"
+MAX_ROWS     = 1000
+MAX_RETRIES  = 3
+\end{verbatim}
+\end{codebox}
+
+\subsection{\_call\_llm — HTTP call tới Groq}
+
+\begin{codebox}[title={bi/agent.py — Groq API call (OpenAI-compatible endpoint)}]
+\begin{verbatim}
+def _call_llm(messages, system, max_tokens=1024):
+    # Groq path
+    url   = "https://api.groq.com/openai/v1/chat/completions"
+    model = GROQ_MODEL  # "llama-3.3-70b-versatile"
+    key   = GROQ_KEY
+
+    all_msgs = [{"role": "system", "content": system}] + messages
+    resp = requests.post(
+        url,
+        headers={"Authorization": f"Bearer {key}"},
+        json={"model": model, "messages": all_msgs,
+              "max_tokens": max_tokens, "temperature": 0},
+        timeout=60,
+    )
+    return resp.json()["choices"][0]["message"]["content"]
+\end{verbatim}
+\end{codebox}
+
+\subsection{\_generate\_text\_based — SQL pipeline với retry}
+
+\begin{codebox}[title={bi/agent.py — Text-based SQL + self-correction}]
+\begin{verbatim}
+def _generate_text_based(question, history, schema, con):
+    system = _SYSTEM_SQL.format(
+        max_rows=MAX_ROWS,
+        table_names=", ".join(GOLD_TABLES),
+        schema=schema,
+    )
+    base_msgs = history[-MAX_HISTORY:] + [{"role":"user","content":question}]
+
+    for attempt in range(MAX_RETRIES):   # tối đa 3 lần
+        if attempt == 0:
+            msgs = base_msgs
+        else:
+            # Kèm SQL lỗi + error message → Groq tự fix
+            msgs = base_msgs + [
+                {"role": "assistant", "content": prev_raw},
+                {"role": "user",      "content": FIX_MSG.format(
+                    sql=raw_sql, error=last_error)}
+            ]
+
+        raw    = _call_llm(msgs, system)        # Groq call
+        parsed = _parse_json(raw)               # Extract JSON
+        sql    = parsed["sql"] + " LIMIT 1000"
+        df     = con.execute(sql).df()          # DuckDB execute
+        return {**parsed, "result_df": df}      # success!
+        # on Exception: last_error = str(e), retry
+\end{verbatim}
+\end{codebox}
+
+\subsection{Streamlit UI — Status và render}
+
+\begin{codebox}[title={bi/agentic\_bi.py — Streamlit processing}]
+\begin{verbatim}
+with st.status("Đang xử lý...", expanded=True) as status:
+    if AI_PROVIDER == "groq":
+        status.write("Phân tích câu hỏi và sinh SQL...")
+
+    res = run(intent=intent, question=user_input,
+              history=chat_history, schema=schema_ctx, con=con)
+
+    status.update(label="Hoàn thành", state="complete")
+
+# Render: intent tag + SQL expander + chart + insight box
+_render_assistant({...})
+\end{verbatim}
+\end{codebox}
+
+\newpage
+
+% ============================================================
+\section{Sơ đồ Đầy Đủ — Groq Agentic BI End-to-End}
+% ============================================================
+
+\begin{tcolorbox}[colback=gray!5, colframe=groqgreen!50, arc=6pt,
+  title={\faSitemap\ End-to-end: User → Groq → DuckDB → Gold Iceberg → Streamlit}]
+
+\begin{center}
+\begin{tikzpicture}[
+  node distance=0.5cm and 0.7cm,
+  box/.style={
+    draw, rounded corners=5pt, minimum width=2.5cm,
+    minimum height=0.85cm, align=center, font=\footnotesize, line width=1pt
+  },
+  arr/.style={-Stealth, line width=1.3pt},
+  darr/.style={-Stealth, line width=0.8pt, dashed, gray!60},
+]
+
+% ── Row 1: Input ─────────────────────────────────────────────
+\node[box, fill=gray!15, draw=gray] (browser)
+  {Browser\\{\tiny Streamlit UI}};
+\node[box, fill=intentblue!15, draw=intentblue,
+      right=of browser] (validator)
+  {Validator\\{\tiny length/injection}};
+\node[box, fill=intentblue!20, draw=intentblue,
+      right=of validator] (classifier)
+  {Intent\\Classifier};
+
+% ── Row 2 (DATA_QUERY path) ───────────────────────────────────
+\node[box, fill=gray!10, draw=gray!50,
+      below=0.8cm of classifier] (schema_ctx)
+  {Schema\\Context\\{\tiny 5-table DDL}};
+\node[box, fill=sqlorange!20, draw=sqlorange,
+      right=of classifier] (groq1)
+  {Groq\\{\tiny LLaMA call 1}\\{\tiny → JSON}};
+\node[box, fill=yellow!20, draw=orange!50,
+      right=of groq1] (parser)
+  {JSON\\Parser\\{\tiny \_parse\_json()}};
+
+% ── Row 3: DuckDB ─────────────────────────────────────────────
+\node[box, fill=duckdbgold!30, draw=duckdbgold,
+      right=of parser] (duckdb)
+  {DuckDB\\{\tiny execute}};
+\node[box, fill=red!10, draw=red!40,
+      below=0.8cm of duckdb] (retry_box)
+  {Self-correct\\{\tiny retry×3}};
+
+% ── Row 4: Output ─────────────────────────────────────────────
+\node[box, fill=insightgreen!20, draw=insightgreen,
+      right=of duckdb] (groq2)
+  {Groq\\{\tiny LLaMA call 2}\\{\tiny → insight}};
+\node[box, fill=purple!10, draw=purple!50,
+      right=of groq2] (charts)
+  {Plotly\\Chart};
+\node[box, fill=groqgreen!20, draw=groqgreen,
+      right=of charts] (output)
+  {Streamlit\\Output};
+
+% ── Gold Iceberg (bottom) ─────────────────────────────────────
+\node[box, fill=gold!30, draw=gold!80,
+      below=1.5cm of groq1, xshift=1.5cm] (iceberg)
+  {Gold Iceberg\\{\tiny 5 tables · R2}};
+\node[box, fill=duckdbgold!20, draw=duckdbgold,
+      right=of iceberg] (arrow_views)
+  {DuckDB\\Views\\{\tiny PyIceberg→Arrow}};
+
+% ── Arrows ────────────────────────────────────────────────────
+\draw[arr, gray]          (browser)    -- (validator);
+\draw[arr, intentblue]    (validator)  -- node[font=\tiny,above]{valid} (classifier);
+\draw[arr, intentblue]    (classifier) -- node[font=\tiny,above]{DATA\_QUERY} (groq1);
+\draw[darr]               (schema_ctx) -- (groq1);
+\draw[arr, sqlorange]     (groq1)      -- (parser);
+\draw[arr, orange!60]     (parser)     -- node[font=\tiny,above]{sql} (duckdb);
+\draw[arr, duckdbgold]    (duckdb)     -- node[font=\tiny,above]{df} (groq2);
+\draw[arr, insightgreen]  (groq2)      -- (charts);
+\draw[arr, groqgreen]     (charts)     -- (output);
+
+% Self-correction
+\draw[darr, red!70] (duckdb.south) -- node[font=\tiny,right]{ERROR} (retry_box.north);
+\draw[darr, red!70] (retry_box.west) to[bend right=35]
+      node[font=\tiny,below]{fix prompt} (groq1.south);
+
+% Iceberg
+\draw[darr, gold!70]     (iceberg)    -- (arrow_views);
+\draw[darr, duckdbgold]  (arrow_views) to[bend left=20] (duckdb.south);
+
+% Schema context
+\draw[darr] (iceberg.west) to[bend right=30]
+      node[font=\tiny,left]{DDL} (schema_ctx.south);
+
+% Followup shortcut
+\node[box, fill=llamapurple!15, draw=llamapurple,
+      below=0.8cm of classifier] (followup)
+  {FOLLOWUP /\\SMALLTALK};
+\draw[darr, llamapurple]  (classifier.south) -- (followup.north);
+\draw[darr, llamapurple]  (followup.east) to[bend left=15] (groq1.south);
+
+\end{tikzpicture}
+\end{center}
+
+\end{tcolorbox}
+
+\newpage
+
+% ============================================================
+\section{Demo Questions — Cheat Sheet}
+% ============================================================
+
+\begin{tcolorbox}[colback=groqgreen!5, colframe=groqgreen!50, arc=6pt,
+  title={\faList\ Câu hỏi demo + Expected Output}]
+
+\renewcommand{\arraystretch}{1.6}
+\begin{tabularx}{\textwidth}{>{\ttfamily\small}p{5.5cm} p{2.5cm} X}
+\toprule
+\normalfont\bfseries Câu hỏi & \bfseries Chart & \bfseries Expected Insight \\
+\midrule
+Top 10 bang doanh thu cao nhất 2018? &
+  bar &
+  SP $\gg$ RJ, chiếm $>$40\% \\
+
+So sánh tỷ lệ giao trễ theo phương thức thanh toán &
+  bar &
+  boleto có tỷ lệ trễ cao hơn credit\_card \\
+
+Doanh thu theo tháng năm 2018? &
+  line &
+  peak tháng 11 (Black Friday Brazil) \\
+
+Phân tích churn: \% khách churned? &
+  pie &
+  $\sim$97\% churned (1-time buyers) \\
+
+Tỷ lệ sentiment của review? &
+  pie &
+  positive $\approx$75\%, negative $\approx$13\% \\
+
+Seller nào review tốt nhất $>$100 đơn? &
+  bar &
+  top sellers: avg score $>$4.8 \\
+
+Tỷ lệ chuyển đổi lead theo kênh? &
+  bar &
+  organic\_search vs paid \\
+
+So sánh Q1/2017 vs Q1/2018 &
+  bar &
+  2018 tăng mạnh, growth $>$100\% \\
+\midrule
+\multicolumn{3}{l}{\bfseries Follow-up (sau câu query trước):} \\
+``Sao SP lại cao vậy?'' & none (followup) & Groq phân tích từ data đã có \\
+``Xu hướng gì đáng lo?'' & none (followup) & Groq highlight anomaly \\
+\bottomrule
+\end{tabularx}
+
+\end{tcolorbox}
+
+\vspace{1em}
+
+\begin{tcolorbox}[colback=yellow!8, colframe=orange!60, arc=4pt,
+  title={\faExclamationTriangle\ Lưu ý khi demo}]
+\begin{itemize}[leftmargin=1.5em, itemsep=4pt]
+  \item \textbf{Groq free tier}: 30 req/min, 6000 req/day --- đủ cho demo 15 phút
+  \item \textbf{Lần đầu khởi động}: PyIceberg load 5 tables vào DuckDB mất $\sim$10s
+        (chỉ một lần duy nhất, sau đó cached)
+  \item \textbf{Nếu câu hỏi quá phức tạp}: Groq text-based chỉ sinh 1 SQL.
+        Demo nên dùng câu hỏi đơn rõ ràng, tránh ``phân tích toàn diện...''
+  \item \textbf{Sidebar check}: trước khi demo verify 5 bảng \textcolor{green!60!black}{\faCheckCircle}:
+        \texttt{fct\_orders}, \texttt{fct\_funnel}, \texttt{dim\_sellers},
+        \texttt{dim\_customers}, \texttt{review\_sentiment}
+  \item \textbf{Nếu SQL lỗi}: hệ thống tự retry, spinner hiển thị. Chờ thêm 2--3s.
+  \item \textbf{Mode label}: sidebar hiển thị ``Mode: Text-based SQL'' --- đây là Groq mode.
+        Nếu thấy ``Tool Use'' nghĩa là đang dùng Claude mode.
+\end{itemize}
+\end{tcolorbox}
+
+% ============================================================
+\section{Phụ lục — Q\&A về Agentic BI}
+% ============================================================
+
+\begin{tcolorbox}[colback=blue!5, colframe=blue!40, arc=6pt,
+  title={\faQuestion\ Câu hỏi thường gặp — Agentic BI}]
+
+\renewcommand{\arraystretch}{1.6}
+\begin{tabularx}{\textwidth}{>{\bfseries}p{5cm} X}
+\toprule
+Câu hỏi & Trả lời \\
+\midrule
+Sao không dùng Claude Tool Use? &
+  Groq \textbf{miễn phí} và \textbf{nhanh hơn} cho single-query use case.
+  Claude Tool Use mạnh hơn ở multi-step analysis nhưng tốn tiền.
+  Hệ thống \textbf{hỗ trợ cả hai} --- chỉ cần đổi \texttt{AI\_PROVIDER} trong \texttt{.env}. \\
+
+Tại sao không dùng text-to-SQL riêng (vd: Langchain)? &
+  Không cần thêm dependency. Groq với system prompt + few-shot đủ mạnh,
+  self-correction tự xử lý 95\% SQL lỗi. \\
+
+Có thể hỏi join nhiều bảng không? &
+  Có. Schema context gồm cả 5 bảng. LLM có thể sinh JOIN.
+  Ví dụ: ``Seller state nào có review sentiment tốt nhất?''
+  → JOIN \texttt{dim\_sellers} + \texttt{review\_sentiment}. \\
+
+DuckDB có chậm không khi data lớn? &
+  DuckDB in-memory với 100K rows Gold tables: $<$100ms.
+  Bottleneck là Groq latency ($\sim$800ms) --- nhưng vẫn nhanh hơn nhiều so với
+  Spark hay Trino cho ad-hoc query nhỏ. \\
+
+SQL injection risk? &
+  System prompt enforce ``chỉ SELECT''.
+  Ngoài ra validator ở \texttt{bi/validator.py} chặn các pattern
+  nguy hiểm trước khi gửi cho LLM. \\
+
+Groq có hỗ trợ tiếng Việt tốt không? &
+  LLaMA 3.3-70B hỗ trợ tiếng Việt tốt ở mức production.
+  System prompt và few-shot examples đều tiếng Việt.
+  Insight output bằng tiếng Việt, số liệu đúng đơn vị. \\
+\bottomrule
+\end{tabularx}
+
+\end{tcolorbox}
+
+% ============================================================
+\end{document}
+% ============================================================
