@@ -391,7 +391,7 @@ services:
   # ──────────────────────────────────────────────────────────
   # ML SERVING – FastAPI (3 XGBoost models)
   # Loads models from MLflow Registry on startup
-  # API docs: http://localhost:8080/docs
+  # API docs: http://localhost:8090/docs
   # Endpoints: /predict/delivery-delay  /predict/churn  /predict/lead
   # ──────────────────────────────────────────────────────────
 
@@ -411,7 +411,7 @@ services:
       mlflow:
         condition: service_healthy
     ports:
-      - "8080:8080"   # ML Serving API  →  http://localhost:8080/docs
+      - "8090:8080"   # ML Serving API  →  http://localhost:8090/docs
     healthcheck:
       test: ["CMD-SHELL", "python3 -c \"import urllib.request; urllib.request.urlopen('http://localhost:8080/health')\""]
       interval: 15s
@@ -456,6 +456,7 @@ services:
       GROQ_MODEL: ${GROQ_MODEL:-llama-3.3-70b-versatile}
       REDPANDA_BROKERS: redpanda:9092
       REFRESH_INTERVAL: "3"
+      ML_SERVING_URL: http://ml-serving:8080
     depends_on:
       mlflow:
         condition: service_healthy

@@ -20,14 +20,25 @@ def get_catalog():
     })
 
 
-def load_gold_table(table_name: str) -> pd.DataFrame:
-    # Strip catalog prefix if present (e.g. "olist.gold.fct_orders" → "gold.fct_orders")
+def _strip_catalog(table_name: str) -> str:
     parts = table_name.split(".")
-    if len(parts) == 3:
-        table_name = ".".join(parts[1:])
+    return ".".join(parts[1:]) if len(parts) == 3 else table_name
+
+
+def load_gold_table(table_name: str) -> pd.DataFrame:
     catalog = get_catalog()
-    log.info("Loading %s ...", table_name)
-    df = catalog.load_table(table_name).scan().to_pandas()
+    name = _strip_catalog(table_name)
+    log.info("Loading %s ...", name)
+    df = catalog.load_table(name).scan().to_pandas()
+    log.info("  → %d rows, %d cols", len(df), len(df.columns))
+    return df
+
+
+def load_silver_table(table_name: str) -> pd.DataFrame:
+    catalog = get_catalog()
+    name = _strip_catalog(table_name)
+    log.info("Loading %s ...", name)
+    df = catalog.load_table(name).scan().to_pandas()
     log.info("  → %d rows, %d cols", len(df), len(df.columns))
     return df
 
