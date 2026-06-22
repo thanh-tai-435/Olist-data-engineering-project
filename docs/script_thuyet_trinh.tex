@@ -1,0 +1,1100 @@
+% ============================================================
+%  SCRIPT THUYẾT TRÌNH — OLIST DATA LAKEHOUSE PLATFORM
+%  4 người · 15 phút · pdflatex
+%  Compile: pdflatex -interaction=nonstopmode script_thuyet_trinh.tex
+% ============================================================
+\documentclass[12pt, a4paper]{article}
+
+% ── Encoding & Language ──────────────────────────────────────
+\usepackage[utf8]{inputenc}
+\usepackage[T5]{fontenc}
+\usepackage[vietnamese]{babel}
+
+% ── Layout ───────────────────────────────────────────────────
+\usepackage[top=2.2cm, bottom=2.2cm, left=2.5cm, right=2.5cm]{geometry}
+\usepackage{parskip}
+\setlength{\parindent}{0pt}
+
+% ── Typography ───────────────────────────────────────────────
+\usepackage{lmodern}
+\usepackage{microtype}
+\usepackage{setspace}
+\onehalfspacing
+
+% ── Color ────────────────────────────────────────────────────
+\usepackage[dvipsnames, table, x11names]{xcolor}
+\definecolor{bronze}{RGB}{180, 103, 40}
+\definecolor{silver}{RGB}{130, 140, 150}
+\definecolor{gold}{RGB}{180, 145, 20}
+\definecolor{p1color}{RGB}{37, 99, 235}   % xanh dương
+\definecolor{p2color}{RGB}{5, 150, 105}   % xanh lá
+\definecolor{p3color}{RGB}{124, 58, 237}  % tím
+\definecolor{p4color}{RGB}{220, 38, 38}   % đỏ
+\definecolor{demobox}{RGB}{15, 23, 42}
+\definecolor{scriptbg}{RGB}{241, 245, 249}
+\definecolor{titlebg}{RGB}{15, 23, 42}
+
+% ── Boxes ────────────────────────────────────────────────────
+\usepackage[most]{tcolorbox}
+\tcbuselibrary{breakable, skins, listings}
+
+% Speaker box style
+\newenvironment{speakerbox}[2]{%
+  \begin{tcolorbox}[
+    enhanced, breakable,
+    colback=#1!6!white,
+    colframe=#1,
+    colbacktitle=#1,
+    coltitle=white,
+    fonttitle=\bfseries\large,
+    title={#2},
+    arc=4pt,
+    boxrule=1.5pt,
+    left=8pt, right=8pt, top=6pt, bottom=6pt,
+  ]
+}{%
+  \end{tcolorbox}
+}
+
+% Demo action box
+\newtcolorbox{demobox}[1][]{
+  enhanced, breakable,
+  colback=demobox,
+  colframe=cyan!60,
+  coltext=white,
+  fonttitle=\bfseries\small\color{cyan!80},
+  title={DEMO — Thao tác màn hình},
+  arc=4pt,
+  boxrule=1pt,
+  left=8pt, right=8pt,
+  #1
+}
+
+% Quote / script style
+\newtcolorbox{scriptbox}{
+  enhanced, breakable,
+  colback=scriptbg,
+  colframe=gray!40,
+  arc=3pt,
+  boxrule=0.8pt,
+  left=12pt, right=8pt,
+  leftrule=4pt,
+}
+
+% Timing badge
+\newcommand{\timing}[1]{%
+  \hfill{\small\bfseries\color{gray}[#1]}%
+}
+
+% Person badge
+\newcommand{\pbadge}[2]{%
+  {\color{#1}\rule{3pt}{10pt}}\ \textbf{\color{#1}#2}
+}
+
+% ── Graphics & TikZ ──────────────────────────────────────────
+\usepackage{tikz}
+\usepackage{tikz-cd}
+\usetikzlibrary{
+  arrows.meta, positioning, fit, shapes.geometric,
+  shapes.multipart, calc, backgrounds, shadows,
+  decorations.pathreplacing, matrix, chains
+}
+
+% ── Tables ───────────────────────────────────────────────────
+\usepackage{booktabs}
+\usepackage{tabularx}
+\usepackage{multirow}
+\usepackage{array}
+
+% ── Misc ─────────────────────────────────────────────────────
+\usepackage{enumitem}
+\usepackage{fontawesome5}
+\usepackage{hyperref}
+\hypersetup{colorlinks=true, linkcolor=p1color, urlcolor=p1color}
+
+% ── Header / Footer ──────────────────────────────────────────
+\usepackage{fancyhdr}
+\pagestyle{fancy}
+\fancyhf{}
+\fancyhead[L]{\small\color{gray}Olist Data Lakehouse — Script Thuyết Trình}
+\fancyhead[R]{\small\color{gray}15 phút · 4 người}
+\fancyfoot[C]{\small\color{gray}\thepage}
+\renewcommand{\headrulewidth}{0.4pt}
+
+% ============================================================
+\begin{document}
+% ============================================================
+
+% ── Title Page ───────────────────────────────────────────────
+\begin{titlepage}
+\begin{tikzpicture}[remember picture, overlay]
+  \fill[titlebg] (current page.north west) rectangle
+    ([yshift=-7cm]current page.north east);
+  \node[anchor=north, text=white, font=\Huge\bfseries,
+        yshift=-2cm] at (current page.north)
+    {Olist Data Lakehouse Platform};
+  \node[anchor=north, text=white!70, font=\large,
+        yshift=-3.5cm] at (current page.north)
+    {Script Thuyết Trình Chi Tiết};
+  \node[anchor=north, text=cyan!60, font=\normalsize,
+        yshift=-4.8cm] at (current page.north)
+    {15 phút $\cdot$ 4 người $\cdot$ Có demo live};
+\end{tikzpicture}
+
+\vspace{9cm}
+
+\begin{tcolorbox}[
+  colback=gray!8, colframe=gray!30,
+  arc=6pt, boxrule=1pt
+]
+\renewcommand{\arraystretch}{1.5}
+\begin{tabularx}{\textwidth}{lXr}
+\toprule
+\textbf{Người} & \textbf{Phần trình bày} & \textbf{Thời gian} \\
+\midrule
+\pbadge{p1color}{Người 1} & Problem + Architecture + Infrastructure & 3 phút \\
+\pbadge{p2color}{Người 2} & Ingestion + Streaming + Orchestration (Prefect) & 3 phút \\
+\pbadge{p3color}{Người 3} & Transform + Quality + Lineage (Marquez) & 3 phút \\
+\pbadge{p4color}{Người 4} & ML + Serving (FastAPI) + Agentic BI (Streamlit) & 6 phút \\
+\midrule
+ & \textbf{Tổng} & \textbf{15 phút} \\
+\bottomrule
+\end{tabularx}
+\end{tcolorbox}
+
+\vfill
+\begin{center}
+\small\color{gray}
+Tài liệu nội bộ — Không trình chiếu trực tiếp
+\end{center}
+\end{titlepage}
+
+\tableofcontents
+\newpage
+
+% ============================================================
+\section{Tổng quan — Lịch trình 15 phút}
+% ============================================================
+
+\begin{center}
+\begin{tikzpicture}[x=1cm, y=1cm]
+  % Timeline bar
+  \draw[line width=3pt, gray!30] (0,0) -- (15,0);
+
+  % Segments
+  \fill[p1color!80, rounded corners=2pt]
+    (0,-0.3) rectangle (3,0.3);
+  \fill[p2color!80, rounded corners=2pt]
+    (3.05,-0.3) rectangle (6,0.3);
+  \fill[p3color!80, rounded corners=2pt]
+    (6.05,-0.3) rectangle (9,0.3);
+  \fill[p4color!80, rounded corners=2pt]
+    (9.05,-0.3) rectangle (15,0.3);
+
+  % Labels inside
+  \node[text=white, font=\small\bfseries] at (1.5,0)   {P1 · 3'};
+  \node[text=white, font=\small\bfseries] at (4.5,0)   {P2 · 3'};
+  \node[text=white, font=\small\bfseries] at (7.5,0)   {P3 · 3'};
+  \node[text=white, font=\small\bfseries] at (12,0)    {P4 · 6'};
+
+  % Minute markers
+  \foreach \x in {0,1,...,15} {
+    \draw[gray!50] (\x, -0.5) -- (\x, -0.7);
+    \node[font=\tiny, color=gray] at (\x,-0.95) {\x'};
+  }
+
+  % Phase labels
+  \node[font=\footnotesize, p1color, above] at (1.5, 0.4) {Architecture};
+  \node[font=\footnotesize, p2color, above] at (4.5, 0.4) {Ingestion};
+  \node[font=\footnotesize, p3color, above] at (7.5, 0.4) {Transform};
+  \node[font=\footnotesize, p4color, above] at (12,  0.4) {ML + BI Demo};
+\end{tikzpicture}
+\end{center}
+
+\vspace{0.5cm}
+
+\begin{tcolorbox}[colback=yellow!10, colframe=orange!60, arc=4pt,
+  title={\faExclamationTriangle\ Chuẩn bị trước khi demo (Người 1 làm trong khi chờ)}]
+\begin{itemize}[leftmargin=1.5em, itemsep=2pt]
+  \item Mở sẵn tất cả tab trên browser: \textbf{Prefect} · \textbf{Redpanda Console} ·
+        \textbf{MLflow} · \textbf{Streamlit} · \textbf{Marquez} · \textbf{FastAPI /docs}
+  \item Chạy lại Gold transform để data fresh:
+        \texttt{docker exec olist-prefect-worker python spark/jobs/gold\_transform.py}
+  \item Restart Streamlit để clear cache:
+        \texttt{docker compose restart streamlit}
+  \item Copy payload FastAPI vào clipboard sẵn (xem trang~\pageref{sec:p4})
+\end{itemize}
+\end{tcolorbox}
+
+\newpage
+
+% ============================================================
+\section{Người 1 — Problem + Architecture (3 phút)}
+% ============================================================
+
+\begin{speakerbox}{p1color}{\faUser\ Người 1 · 0:00 -- 3:00}
+
+\subsection*{[Slide: Tiêu đề + Dataset] \timing{0:00 -- 1:00}}
+
+\begin{scriptbox}
+``Chào thầy cô và các bạn. Nhóm em xin trình bày đồ án về \textbf{Olist Data Lakehouse
+Platform} --- một hệ thống data engineering end-to-end được xây dựng trên bộ dữ liệu
+thương mại điện tử thực tế của Olist Brazil.
+
+Dataset gồm hơn \textbf{100 nghìn đơn hàng}, 8 bảng e-commerce và 2 bảng marketing funnel ---
+tổng khoảng 200~MB raw data. Nhỏ về dung lượng nhưng nhóm em thiết kế architecture
+như thể đang xử lý TB-scale.''
+\end{scriptbox}
+
+\subsection*{[Slide: Bài toán] \timing{1:00 -- 1:45}}
+
+\begin{scriptbox}
+``Bài toán đặt ra là: làm sao để một công ty như Olist có thể \textbf{vừa nhận dữ liệu real-time
+từ đơn hàng mới}, vừa \textbf{batch process lịch sử}, đồng thời phục vụ cả BI lẫn
+Machine Learning --- mà không bị conflict, không mất data, và có thể rollback khi
+pipeline lỗi?
+
+Đây chính là lý do nhóm chọn \textbf{Lambda Architecture kết hợp Medallion} thay vì
+một pipeline đơn giản.''
+\end{scriptbox}
+
+\subsection*{[Sơ đồ Architecture] \timing{1:45 -- 3:00}}
+
+\begin{scriptbox}
+``Nhìn vào sơ đồ này --- hệ thống chia làm hai luồng song song.
+
+\textbf{Batch path} --- CSV gốc được ingest vào Bronze layer qua PyIceberg.
+\textbf{Streaming path} --- synthetic order events được replay qua Redpanda, consumer ghi
+thẳng vào cùng Bronze layer. Hai luồng ghi đồng thời, không conflict --- nhờ
+Apache Iceberg đảm bảo ACID.
+
+Tại sao Iceberg mà không phải raw Parquet? Ba lý do: \textbf{ACID transactions} ---
+batch và stream ghi song song an toàn. \textbf{Time travel} --- nếu Gold transform ra sai,
+rollback về snapshot hôm qua bằng một câu lệnh. \textbf{Schema evolution} --- thêm cột
+mà không break downstream.
+
+Toàn bộ pipeline được điều phối bởi \textbf{Prefect}, với quality gate Soda Core chặn
+ở mỗi layer. Lineage được capture tự động bởi \textbf{OpenLineage Spark listener} và
+lưu vào \textbf{Marquez}.''
+\end{scriptbox}
+
+\textbf{Câu chuyển:} \textit{``Bây giờ để thấy hệ thống này hoạt động thực tế, bạn [tên] sẽ
+demo từ điểm đầu tiên --- dữ liệu vào hệ thống như thế nào.''}
+
+\end{speakerbox}
+
+\vspace{1em}
+
+% ── Diagram: Lambda + Medallion ──────────────────────────────
+\begin{tcolorbox}[colback=gray!5, colframe=gray!40, arc=6pt,
+  title={\faSitemap\ Sơ đồ 1 — Lambda + Medallion Architecture}]
+
+\begin{center}
+\begin{tikzpicture}[
+  node distance = 0.6cm and 0.8cm,
+  every node/.style = {font=\small},
+  box/.style = {
+    draw, rounded corners=4pt, minimum width=2.4cm,
+    minimum height=0.85cm, align=center, line width=1pt
+  },
+  layerbox/.style = {
+    draw, rounded corners=6pt, minimum width=2.6cm,
+    minimum height=3.8cm, align=center, line width=1.5pt
+  },
+  arr/.style = {-Stealth, line width=1.2pt},
+  thin arr/.style = {-Stealth, line width=0.8pt, dashed},
+]
+
+% ── Sources ───────────────────────────────────────────────────
+\node[box, fill=gray!15, draw=gray] (csv)
+  {CSV Files\\{\tiny 8 bảng Olist}};
+\node[box, fill=gray!15, draw=gray, below=0.5cm of csv] (stream)
+  {Synthetic Stream\\{\tiny order events}};
+
+% ── Redpanda ──────────────────────────────────────────────────
+\node[box, fill=orange!20, draw=orange!70,
+      right=1.2cm of stream] (redpanda)
+  {Redpanda\\{\tiny Kafka-compat}};
+
+% ── Bronze ────────────────────────────────────────────────────
+\node[box, fill=bronze!25, draw=bronze,
+      right=1.2cm of csv, yshift=-0.6cm] (bronze)
+  {\textbf{BRONZE}\\{\tiny 10 Iceberg tables}\\{\tiny append-only · ACID}};
+
+% ── Prefect ───────────────────────────────────────────────────
+\node[box, fill=blue!15, draw=blue!60,
+      right=1.5cm of bronze, yshift=1.2cm] (prefect)
+  {Prefect\\{\tiny Orchestration}};
+
+% ── Soda Bronze ───────────────────────────────────────────────
+\node[box, fill=yellow!20, draw=orange!60,
+      right=1.5cm of bronze, yshift=-1.2cm] (sodab)
+  {Soda Core\\{\tiny Quality Check}};
+
+% ── Silver ────────────────────────────────────────────────────
+\node[box, fill=silver!40, draw=silver!80,
+      right=1.4cm of sodab, yshift=1.2cm] (silver)
+  {\textbf{SILVER}\\{\tiny 10 Iceberg tables}\\{\tiny MERGE INTO}};
+
+% ── Soda Silver ───────────────────────────────────────────────
+\node[box, fill=yellow!20, draw=orange!60,
+      below=0.4cm of silver] (sodas)
+  {Soda Core\\{\tiny Quality Check}};
+
+% ── Gold ──────────────────────────────────────────────────────
+\node[box, fill=gold!40, draw=gold!90,
+      right=1.4cm of silver] (gold)
+  {\textbf{GOLD}\\{\tiny 5 Iceberg tables}\\{\tiny partitioned}};
+
+% ── Consumers ─────────────────────────────────────────────────
+\node[box, fill=red!15, draw=red!50,
+      right=1.2cm of gold, yshift=1cm] (bi)
+  {Streamlit\\{\tiny Agentic BI}};
+\node[box, fill=green!15, draw=green!60,
+      right=1.2cm of gold] (ml)
+  {MLflow\\{\tiny ML Models}};
+\node[box, fill=purple!15, draw=purple!50,
+      right=1.2cm of gold, yshift=-1cm] (trino)
+  {Trino\\{\tiny Query Fed.}};
+
+% ── OpenLineage / Marquez ─────────────────────────────────────
+\node[box, fill=teal!15, draw=teal!60,
+      below=1.4cm of silver] (marquez)
+  {Marquez\\{\tiny Data Lineage}};
+
+% ── Arrows ────────────────────────────────────────────────────
+\draw[arr, bronze] (csv)     -- (bronze);
+\draw[arr, orange!80] (stream) -- (redpanda);
+\draw[arr, orange!80] (redpanda) -- (bronze);
+\draw[arr, blue!60] (prefect) to[bend left=20] (bronze);
+\draw[arr, blue!60] (prefect) to[bend left=10] (silver);
+\draw[arr, blue!60] (prefect) to[bend left=5]  (gold);
+\draw[arr, bronze] (bronze) -- (sodab);
+\draw[arr, silver!80] (sodab) -- (silver);
+\draw[arr, silver!80] (silver) -- (sodas);
+\draw[arr, gold!80]   (sodas) -- (gold);
+\draw[arr, red!50]   (gold) -- (bi);
+\draw[arr, green!60] (gold) -- (ml);
+\draw[arr, purple!50] (gold) -- (trino);
+
+% OpenLineage arrows (dashed, teal)
+\draw[thin arr, teal!70] (silver) -- (marquez);
+\draw[thin arr, teal!70] (gold.south) to[bend right=10] (marquez);
+
+% ── Labels on arrows ──────────────────────────────────────────
+\node[font=\tiny, text=bronze] at (1.15,-0.35) {batch};
+\node[font=\tiny, text=orange!80] at (0.9,-1.6) {stream};
+
+\end{tikzpicture}
+\end{center}
+
+\begin{center}
+\begin{tabular}{cll}
+\toprule
+Màu & Layer & Đặc điểm \\
+\midrule
+\textcolor{bronze}{\rule{12pt}{8pt}} & Bronze & Append-only · ACID · Immutable \\
+\textcolor{silver}{\rule{12pt}{8pt}} & Silver & MERGE INTO · Incremental · 10 bảng \\
+\textcolor{gold}{\rule{12pt}{8pt}}   & Gold   & Aggregated · Partitioned · BI-ready \\
+\textcolor{blue!60}{\rule{12pt}{8pt}} & Prefect & Orchestrates toàn bộ pipeline \\
+\textcolor{teal!60}{\rule{12pt}{8pt}} & Marquez & Auto-lineage từ OpenLineage \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\end{tcolorbox}
+
+\newpage
+
+% ============================================================
+\section{Người 2 — Ingestion + Orchestration (3 phút)}
+% ============================================================
+
+\begin{speakerbox}{p2color}{\faUser\ Người 2 · 3:00 -- 6:00}
+
+\subsection*{[Mở Redpanda Console] \timing{3:00 -- 4:15}}
+
+\begin{demobox}
+\textbf{Thao tác:} Mở tab Redpanda Console $\to$ click topic \texttt{olist.orders}
+$\to$ click vào một message để xem payload JSON.
+\end{demobox}
+
+\begin{scriptbox}
+``Đây là \textbf{Redpanda Console} --- Redpanda là Kafka-compatible broker, chạy trong
+một container duy nhất, không cần Zookeeper, tiêu thụ ít hơn 500~MB RAM so với
+Kafka cần 2~GB.
+
+Nhìn vào topic \texttt{olist.orders} --- đây là các order event đang được replay
+theo đúng timestamp gốc, với speed factor 86400 --- tức 1 ngày lịch sử bằng 1 giây
+real-time.
+
+Mỗi message có key là \texttt{order\_id} để đảm bảo partition ordering. Consumer group
+\texttt{iceberg-bronze-writer} nhận message này và ghi vào Bronze Iceberg với
+\textbf{append-only} --- không bao giờ update, không bao giờ delete, giữ nguyên tính
+immutable của Bronze.''
+\end{scriptbox}
+
+\subsection*{[Mở Prefect UI] \timing{4:15 -- 6:00}}
+
+\begin{demobox}
+\textbf{Thao tác:}
+\begin{enumerate}[leftmargin=1.5em, itemsep=2pt]
+  \item Mở tab Prefect UI $\to$ click vào \textbf{Flow Runs}
+  \item Chọn một run \texttt{full-pipeline} đã \textcolor{green!60}{Completed}
+  \item Click vào \textbf{Task Graph} để thấy dependency tree
+  \item Click vào task \texttt{soda\_check\_task} ở Silver để xem logs
+\end{enumerate}
+\end{demobox}
+
+\begin{scriptbox}
+``Đây là \textbf{Prefect UI} --- dashboard của orchestration engine. Nhìn vào flow run này
+--- Bronze ingestion chạy trước, xong mới trigger Silver transform, xong mới trigger
+Gold. Dependency được define bằng \texttt{wait\_for} trong code Python.
+
+Task màu xanh là \textbf{soda\_check\_task} --- sau mỗi layer có một \textbf{quality gate}.
+Soda Core kiểm tra null rate, row count, referential integrity. Nếu check fail, flow
+\textbf{pause} ở đây và chờ người vận hành review trên UI này --- không cho chạy
+tiếp lên Gold.
+
+Mỗi task đều có \texttt{retries=3} --- nếu S3 timeout hay Spark gặp lỗi transient,
+tự retry mà không cần can thiệp thủ công.
+
+Flow này có thể schedule chạy hàng ngày lúc 2 giờ sáng bằng flag \texttt{-{}-serve},
+hoặc trigger thủ công từ UI này.''
+\end{scriptbox}
+
+\textbf{Câu chuyển:} \textit{``Data đã vào Bronze và pipeline đã orchestrate xong.
+Bạn [tên] sẽ show phần transform và lineage.''}
+
+\end{speakerbox}
+
+\vspace{1em}
+
+% ── Diagram: Prefect Flow ────────────────────────────────────
+\begin{tcolorbox}[colback=gray!5, colframe=p2color!50, arc=6pt,
+  title={\faSitemap\ Sơ đồ 2 — Prefect Full Pipeline Flow}]
+
+\begin{center}
+\begin{tikzpicture}[
+  node distance=0.5cm and 1.1cm,
+  task/.style={
+    draw, rounded corners=4pt, minimum width=3.0cm,
+    minimum height=0.75cm, align=center, font=\small,
+    line width=1pt
+  },
+  decision/.style={
+    diamond, draw, aspect=2.5, minimum width=3.2cm,
+    minimum height=0.6cm, align=center, font=\footnotesize,
+    fill=yellow!20, draw=orange!60, line width=1pt
+  },
+  arr/.style={-Stealth, line width=1pt},
+  label/.style={font=\tiny, color=gray},
+]
+
+% Tasks
+\node[task, fill=gray!15, draw=gray]         (start)   {Start Flow};
+\node[task, fill=bronze!25, draw=bronze,
+      right=of start]                         (bronze)  {bronze\_ingestion\\{\tiny CSV + Stream → Iceberg}};
+\node[decision, right=of bronze]             (qb)      {Soda\\Bronze?};
+\node[task, fill=red!15, draw=red!50,
+      below=0.8cm of qb]                     (failb)   {PAUSE / Notify\\{\tiny webhook}};
+\node[task, fill=silver!40, draw=silver!80,
+      right=of qb]                            (silver)  {silver\_transform\\{\tiny PySpark MERGE INTO}};
+\node[decision, right=of silver]             (qs)      {Soda\\Silver?};
+\node[task, fill=red!15, draw=red!50,
+      below=0.8cm of qs]                     (fails)   {PAUSE / Notify\\{\tiny webhook}};
+\node[task, fill=gold!40, draw=gold!90,
+      right=of qs]                            (gold)    {gold\_transform\\{\tiny PySpark aggregate}};
+\node[decision, right=of gold]              (qg)      {Soda\\Gold?};
+\node[task, fill=red!15, draw=red!50,
+      below=0.8cm of qg]                     (failg)   {PAUSE / Notify\\{\tiny webhook}};
+\node[task, fill=green!15, draw=green!60,
+      right=of qg]                            (done)    {\faCheck\ Complete\\{\tiny emit lineage}};
+
+% Arrows
+\draw[arr] (start)  -- (bronze);
+\draw[arr] (bronze) -- (qb);
+\draw[arr] (qb) -- node[label, above]{Pass} (silver);
+\draw[arr] (qb) -- node[label, right]{Fail} (failb);
+\draw[arr] (silver) -- (qs);
+\draw[arr] (qs) -- node[label, above]{Pass} (gold);
+\draw[arr] (qs) -- node[label, right]{Fail} (fails);
+\draw[arr] (gold) -- (qg);
+\draw[arr] (qg) -- node[label, above]{Pass} (done);
+\draw[arr] (qg) -- node[label, right]{Fail} (failg);
+
+% Retry decorations
+\draw[thin, dashed, orange!60, -Stealth]
+  (failb.west) to[bend left=45] node[label,left]{\tiny retry 3x} (bronze.south);
+
+\end{tikzpicture}
+\end{center}
+
+\begin{center}
+\footnotesize
+\begin{tabular}{lll}
+\toprule
+Flow & Mô tả & Schedule \\
+\midrule
+\texttt{full-pipeline} & Bronze $\to$ Silver $\to$ Gold với quality gate & Daily 02:00 UTC \\
+\texttt{ml-training} & Retrain 3 XGBoost models & Weekly \\
+\texttt{sentiment-flow} & Score reviews mới bằng BERTimbau & Daily 03:00 UTC \\
+\texttt{quality-checks} & Standalone Soda check on-demand & Manual \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\end{tcolorbox}
+
+\newpage
+
+% ============================================================
+\section{Người 3 — Transform + Quality + Lineage (3 phút)}
+% ============================================================
+
+\begin{speakerbox}{p3color}{\faUser\ Người 3 · 6:00 -- 9:00}
+
+\subsection*{[Nói + bảng Silver/Gold schema] \timing{6:00 -- 7:30}}
+
+\begin{scriptbox}
+``Bronze là raw --- giữ nguyên format gốc, append-only. Silver là nơi data được
+làm sạch và chuẩn hóa.
+
+PySpark đọc từ Bronze và tạo ra \textbf{10 Silver tables} ---
+\texttt{stg\_orders}, \texttt{stg\_sellers}, \texttt{stg\_products},
+\texttt{stg\_customers}, \texttt{stg\_order\_items}, \texttt{stg\_order\_payments},
+\texttt{stg\_order\_reviews}, \texttt{stg\_marketing\_leads},
+\texttt{stg\_marketing\_deals}, và một bảng intermediate
+\texttt{int\_orders\_enriched} --- join 6 bảng lại thành một view enriched.
+
+Silver dùng \textbf{Iceberg MERGE INTO} --- chạy incremental, chỉ update row thay đổi,
+không overwrite toàn bộ. Hiệu quả hơn nhiều so với DROP + INSERT.
+
+Gold là aggregation cuối --- \textbf{5 bảng} phục vụ BI và ML:
+\texttt{fct\_orders} 99K dòng, \texttt{fct\_funnel} 8K dòng,
+\texttt{dim\_sellers} 3K, \texttt{dim\_customers} 96K,
+và \texttt{review\_sentiment} gần 99K dòng với điểm sentiment BERTimbau
+cho 5 aspect: product quality, delivery speed, seller service, price/value, overall.''
+\end{scriptbox}
+
+\subsection*{[Mở Marquez Web] \timing{7:30 -- 9:00}}
+
+\begin{demobox}
+\textbf{Thao tác:}
+\begin{enumerate}[leftmargin=1.5em, itemsep=2pt]
+  \item Mở tab Marquez Web UI
+  \item Chọn namespace \texttt{olist} ở dropdown
+  \item Click vào job \texttt{olist\_gold\_transform}
+  \item Phóng to DAG để thấy các Bronze tables $\to$ Silver $\to$ Gold
+\end{enumerate}
+\end{demobox}
+
+\begin{scriptbox}
+``Đây là \textbf{Marquez} --- data lineage UI. Nhìn vào DAG này --- từ trái sang phải là
+Bronze tables $\to$ Silver jobs $\to$ Silver tables $\to$ Gold jobs $\to$ Gold tables.
+Mỗi arrow là một lineage relationship.
+
+Điểm quan trọng: nhóm em \textbf{không viết một dòng code nào} để tạo ra cái này.
+OpenLineage là Spark listener --- attach vào SparkSession, tự động emit event khi
+Spark đọc và ghi table. Marquez nhận event và vẽ DAG.
+
+Trong môi trường production, khi data engineer thay đổi một join trong Silver,
+họ có thể nhìn ngay vào đây để biết Gold table nào bị ảnh hưởng downstream ---
+\textbf{impact analysis} tự động, không cần document thủ công.''
+\end{scriptbox}
+
+\textbf{Câu chuyển:} \textit{``Data đã sạch và có lineage. Bạn [tên] sẽ show phần ML
+và BI --- là layer serving cuối cùng.''}
+
+\end{speakerbox}
+
+\vspace{1em}
+
+% ── Diagram: Marquez Lineage ─────────────────────────────────
+\begin{tcolorbox}[colback=gray!5, colframe=p3color!50, arc=6pt,
+  title={\faSitemap\ Sơ đồ 3 — Data Lineage DAG (Marquez / OpenLineage)}]
+
+\begin{center}
+\begin{tikzpicture}[
+  node distance=0.35cm and 0.8cm,
+  tbl/.style={
+    draw, rounded corners=3pt, minimum width=2.3cm,
+    minimum height=0.6cm, align=center, font=\footnotesize,
+    line width=0.8pt
+  },
+  job/.style={
+    draw, diamond, aspect=2.0, minimum width=2.8cm,
+    minimum height=0.5cm, align=center, font=\footnotesize,
+    line width=1.2pt
+  },
+  arr/.style={-Stealth, line width=0.8pt, gray!70},
+]
+
+% ── Bronze inputs ─────────────────────────────────────────────
+\node[tbl, fill=bronze!20, draw=bronze] (bo)   {ecom\_orders};
+\node[tbl, fill=bronze!20, draw=bronze,
+      below=of bo]                      (bi)   {ecom\_order\_items};
+\node[tbl, fill=bronze!20, draw=bronze,
+      below=of bi]                      (bp)   {ecom\_products};
+\node[tbl, fill=bronze!20, draw=bronze,
+      below=of bp]                      (bs)   {ecom\_sellers};
+\node[tbl, fill=bronze!20, draw=bronze,
+      below=of bs]                      (bc)   {ecom\_customers};
+\node[tbl, fill=bronze!20, draw=bronze,
+      below=of bc]                      (bpay) {ecom\_payments};
+\node[tbl, fill=bronze!20, draw=bronze,
+      below=of bpay]                    (br)   {ecom\_reviews};
+\node[tbl, fill=bronze!20, draw=bronze,
+      below=of br]                      (bl)   {mktg\_leads};
+\node[tbl, fill=bronze!20, draw=bronze,
+      below=of bl]                      (bd)   {mktg\_deals};
+
+% ── Silver transform job ──────────────────────────────────────
+\node[job, fill=blue!10, draw=blue!60,
+      right=1.5cm of bp, yshift=-1.5cm] (stj)
+  {silver\_transform\\{\tiny PySpark}};
+
+% ── Silver outputs ────────────────────────────────────────────
+\node[tbl, fill=silver!40, draw=silver!80,
+      right=1.2cm of stj, yshift=2.5cm]  (so)  {stg\_orders};
+\node[tbl, fill=silver!40, draw=silver!80,
+      below=of so]                        (ss)  {stg\_sellers};
+\node[tbl, fill=silver!40, draw=silver!80,
+      below=of ss]                        (sc)  {stg\_customers};
+\node[tbl, fill=silver!40, draw=silver!80,
+      below=of sc]                        (sp)  {stg\_products};
+\node[tbl, fill=silver!40, draw=silver!80,
+      below=of sp]                        (sint){int\_orders\_enriched};
+\node[tbl, fill=silver!40, draw=silver!80,
+      below=of sint]                      (sml) {stg\_mktg\_leads};
+
+% ── Gold transform job ────────────────────────────────────────
+\node[job, fill=gold!20, draw=gold!80,
+      right=1.3cm of sc, yshift=-1cm] (gtj)
+  {gold\_transform\\{\tiny PySpark}};
+
+% ── Gold outputs ──────────────────────────────────────────────
+\node[tbl, fill=gold!40, draw=gold!90,
+      right=1.2cm of gtj, yshift=1.8cm]  (gfo)  {fct\_orders\\{\tiny 99K}};
+\node[tbl, fill=gold!40, draw=gold!90,
+      below=of gfo]                        (gff)  {fct\_funnel\\{\tiny 8K}};
+\node[tbl, fill=gold!40, draw=gold!90,
+      below=of gff]                        (gds)  {dim\_sellers\\{\tiny 3K}};
+\node[tbl, fill=gold!40, draw=gold!90,
+      below=of gds]                        (gdc)  {dim\_customers\\{\tiny 96K}};
+\node[tbl, fill=gold!40, draw=gold!90,
+      below=of gdc]                        (grs)  {review\_sentiment\\{\tiny 99K}};
+
+% ── Arrows Bronze → Silver job ────────────────────────────────
+\foreach \src in {bo, bi, bp, bs, bc, bpay, br, bl, bd} {
+  \draw[arr, bronze!60] (\src.east) -- (stj.west);
+}
+
+% ── Arrows Silver job → Silver tables ─────────────────────────
+\foreach \dst in {so, ss, sc, sp, sint, sml} {
+  \draw[arr, silver!80] (stj.east) -- (\dst.west);
+}
+
+% ── Arrows Silver tables → Gold job ───────────────────────────
+\foreach \src in {so, ss, sc, sp, sint, sml} {
+  \draw[arr, silver!80] (\src.east) -- (gtj.west);
+}
+
+% ── Arrows Gold job → Gold tables ─────────────────────────────
+\foreach \dst in {gfo, gff, gds, gdc, grs} {
+  \draw[arr, gold!80] (gtj.east) -- (\dst.west);
+}
+
+% Labels
+\node[font=\tiny, color=bronze, above=0.1cm of bo] {\textbf{BRONZE}};
+\node[font=\tiny, color=silver!80, above=0.1cm of so] {\textbf{SILVER}};
+\node[font=\tiny, color=gold!90, above=0.1cm of gfo] {\textbf{GOLD}};
+
+\end{tikzpicture}
+\end{center}
+\end{tcolorbox}
+
+\newpage
+
+% ============================================================
+\section{Người 4 — ML + Serving + Agentic BI (6 phút)}
+\label{sec:p4}
+% ============================================================
+
+\begin{speakerbox}{p4color}{\faUser\ Người 4 · 9:00 -- 15:00}
+
+\subsection*{[Mở MLflow UI] \timing{9:00 -- 10:30}}
+
+\begin{demobox}
+\textbf{Thao tác:}
+\begin{enumerate}[leftmargin=1.5em, itemsep=2pt]
+  \item Mở tab MLflow $\to$ click \textbf{Experiments}
+  \item Chọn \texttt{delivery-delay-prediction} $\to$ click vào run mới nhất
+  \item Scroll xuống \textbf{Artifacts} $\to$ click \texttt{delivery\_feature\_importance.csv}
+  \item Quay lại \textbf{Models} $\to$ show 4 registered models
+\end{enumerate}
+\end{demobox}
+
+\begin{scriptbox}
+``Đây là \textbf{MLflow} --- experiment tracking và model registry. Nhóm train 4 model:
+delivery delay prediction, customer churn, lead scoring, và BERTimbau sentiment.
+
+Nhìn vào run này --- log đầy đủ hyperparameters, metrics RMSE, MAE, R2, và
+artifact \textbf{feature importance}. Feature quan trọng nhất là \texttt{seller\_customer\_same\_state}
+--- chiếm 18.5\% importance --- đây là biến nhị phân: seller và customer có cùng
+bang không? Nếu cùng bang, thường giao nhanh hơn.
+
+\textbf{Điểm khác biệt cốt lõi}: nhóm đọc từ \textbf{Silver}, không phải Gold để train.
+Tại sao? Churn model cần rolling window --- khách mua bao nhiêu đơn trong
+\textbf{30 ngày qua, 90 ngày, 180 ngày}. Gold đã aggregate lifetime rồi, không còn
+temporal signal nữa. Delivery model cần cross-join seller state với customer state để
+tính \texttt{seller\_customer\_same\_state} --- Gold cũng không có field này.
+
+Tất cả 4 model đã được register vào \textbf{Model Registry} --- versioned,
+load bằng URI \texttt{models:/delivery-delay-xgb/latest}.''
+\end{scriptbox}
+
+\subsection*{[Mở FastAPI /docs] \timing{10:30 -- 11:30}}
+
+\begin{demobox}
+\textbf{Thao tác:}
+\begin{enumerate}[leftmargin=1.5em, itemsep=2pt]
+  \item Mở tab FastAPI \texttt{http://localhost:8090/docs}
+  \item Click \textbf{POST /predict/delivery-delay} $\to$ \textbf{Try it out}
+  \item Paste payload dưới đây vào Request body $\to$ \textbf{Execute}
+  \item Đọc kết quả \texttt{delay\_days} và \texttt{interpretation}
+  \item Đổi \texttt{customer\_state}: \texttt{"AM"} $\to$ \texttt{"SP"} $\to$ Execute lại
+\end{enumerate}
+
+\vspace{0.3em}
+\textbf{Payload 1} (SP $\to$ AM, khác bang):
+\begin{verbatim}
+{
+  "customer_state": "AM", "seller_state": "SP",
+  "payment_type": "credit_card", "item_count": 2,
+  "total_weight_g": 2000, "order_revenue": 150,
+  "order_freight": 25, "order_month_num": 8
+}
+\end{verbatim}
+
+\textbf{Payload 2} (SP $\to$ SP, cùng bang — chỉ đổi \texttt{customer\_state}):
+\begin{verbatim}
+{ ..., "customer_state": "SP", ... }
+\end{verbatim}
+\end{demobox}
+
+\begin{scriptbox}
+``\textbf{ML serving} được wrap bằng FastAPI --- chạy trong container riêng, load cả 3
+prediction model khi startup.
+
+Nhóm gọi thử với đơn hàng từ São Paulo ship đến Amazonas ---
+hai bang xa nhau nhất Brazil. Kết quả: trễ khoảng 8 ngày.
+
+Giờ đổi customer state về SP --- cùng bang với seller --- (Execute lại) ---
+kết quả sớm hơn 2 ngày. \texttt{seller\_customer\_same\_state} thay đổi từ 0 sang 1,
+model phản ứng đúng với thực tế logistics.
+
+Ngoài single prediction còn có \textbf{batch endpoint} --- Streamlit dùng endpoint
+này để score 8000 leads cùng lúc trong tab Batch Insights.''
+\end{scriptbox}
+
+\subsection*{[Mở Streamlit — Agentic BI] \timing{11:30 -- 13:30}}
+
+\begin{demobox}
+\textbf{Thao tác:}
+\begin{enumerate}[leftmargin=1.5em, itemsep=2pt]
+  \item Mở Streamlit \texttt{http://localhost:8501} $\to$ page \textbf{Olist Agentic BI}
+  \item Gõ câu hỏi 1 vào chat input $\to$ chờ kết quả $\to$ expand SQL expander
+  \item Gõ câu hỏi 2 $\to$ show multi-query output
+\end{enumerate}
+
+\textbf{Câu hỏi 1:} \textit{``Top 10 bang có doanh thu cao nhất năm 2018?''}\\
+\textbf{Câu hỏi 2:} \textit{``So sánh tỷ lệ giao trễ giữa các phương thức thanh toán''}
+\end{demobox}
+
+\begin{scriptbox}
+``Đây là \textbf{Agentic BI} --- layer BI dùng Claude API với Tool Use.
+
+Cơ chế: câu hỏi tự nhiên $\to$ Claude phân tích intent $\to$ gọi tool
+\texttt{query\_database} với SQL và chart type $\to$ DuckDB thực thi trên
+Gold Iceberg tables $\to$ Claude nhận kết quả, sinh business insight.
+
+(expand SQL) Thấy SQL được sinh ra ở đây --- Claude tự viết GROUP BY,
+filter năm 2018, ORDER BY revenue. Chart tự chọn bar chart vì đây là ranking.
+
+Câu hỏi thứ 2 trigger \textbf{multi-query} --- Claude gọi tool 2 lần: một lần
+lấy tổng đơn, một lần lấy đơn trễ, rồi tự tính tỷ lệ. Đây là \textbf{agentic loop}
+thực sự --- không phải text-to-SQL đơn giản.''
+\end{scriptbox}
+
+\subsection*{[Streamlit — ML Predictions page] \timing{13:30 -- 14:30}}
+
+\begin{demobox}
+\textbf{Thao tác:}
+\begin{enumerate}[leftmargin=1.5em, itemsep=2pt]
+  \item Sidebar $\to$ click \textbf{ML Predictions}
+  \item Tab \textbf{Churn Risk} $\to$ điền: total orders = 3, orders last 90d = 0,
+        days since last order = 120 $\to$ click Predict
+  \item Tab \textbf{Batch Insights} $\to$ chờ load (8000 leads) $\to$ scroll histogram
+\end{enumerate}
+\end{demobox}
+
+\begin{scriptbox}
+``Page này kết nối trực tiếp vào FastAPI serving.
+
+Tab Churn Risk --- nhập profile khách hàng --- total orders 3, không mua
+trong 90 ngày qua --- (Predict) --- churn probability 87\%, \textbf{HIGH risk},
+CRM action: \textit{Send win-back campaign}.
+
+Tab Batch Insights --- load toàn bộ 8000 leads từ Gold, batch score qua API,
+trả về histogram phân phối và \textbf{top 20 leads ưu tiên cao nhất}
+để sales team follow up ngay hôm nay.''
+\end{scriptbox}
+
+\subsection*{[Closing] \timing{14:30 -- 15:00}}
+
+\begin{scriptbox}
+``Tóm lại --- hệ thống này implement đầy đủ: \textbf{Lambda architecture} với batch
+và streaming song song, \textbf{Medallion trên Iceberg} với ACID và time travel,
+\textbf{feature pipeline từ Silver} cho ML, \textbf{Agentic BI với LLM},
+\textbf{data lineage tự động}, \textbf{quality gate chặn pipeline},
+và \textbf{CI/CD GitHub Actions} chạy trên mọi pull request.
+
+Nhóm em xin mời thầy cô đặt câu hỏi.''
+\end{scriptbox}
+
+\end{speakerbox}
+
+\vspace{1em}
+
+% ── Diagram: MLflow Workflow ──────────────────────────────────
+\begin{tcolorbox}[colback=gray!5, colframe=p4color!50, arc=6pt,
+  title={\faSitemap\ Sơ đồ 4 — MLflow Training \& Deployment Pipeline}]
+
+\begin{center}
+\begin{tikzpicture}[
+  node distance=0.4cm and 0.9cm,
+  box/.style={
+    draw, rounded corners=4pt, minimum width=2.8cm,
+    minimum height=0.8cm, align=center, font=\small, line width=1pt
+  },
+  arr/.style={-Stealth, line width=1.2pt},
+]
+
+% ── Feature pipeline ──────────────────────────────────────────
+\node[box, fill=silver!40, draw=silver!80] (feat)
+  {Feature Pipeline\\{\tiny Silver → features.py}};
+
+% ── Training ──────────────────────────────────────────────────
+\node[box, fill=blue!15, draw=blue!60,
+      right=of feat] (train)
+  {XGBoost Training\\{\tiny SMOTE + Pipeline}};
+
+% ── MLflow tracking ───────────────────────────────────────────
+\node[box, fill=orange!20, draw=orange!60,
+      right=of train] (track)
+  {MLflow Tracking\\{\tiny params · metrics · artifacts}};
+
+% ── Model Registry ────────────────────────────────────────────
+\node[box, fill=purple!15, draw=purple!60,
+      right=of track] (reg)
+  {Model Registry\\{\tiny versioned URI}};
+
+% ── FastAPI ───────────────────────────────────────────────────
+\node[box, fill=green!15, draw=green!60,
+      right=of reg] (api)
+  {FastAPI Serving\\{\tiny /predict/* endpoints}};
+
+% ── Consumers ─────────────────────────────────────────────────
+\node[box, fill=red!10, draw=red!40,
+      above right=0.4cm and 0.6cm of api] (st)
+  {Streamlit\\ML Predictions};
+\node[box, fill=gray!15, draw=gray,
+      below right=0.4cm and 0.6cm of api] (ext)
+  {External App\\{\tiny REST calls}};
+
+% ── Silver input ──────────────────────────────────────────────
+\node[box, fill=silver!20, draw=silver!60,
+      left=of feat] (silver)
+  {Silver Layer\\{\tiny Iceberg tables}};
+
+% ── Arrows ────────────────────────────────────────────────────
+\draw[arr, silver!80]   (silver) -- (feat);
+\draw[arr, blue!60]     (feat)   -- (train);
+\draw[arr, orange!60]   (train)  -- (track);
+\draw[arr, purple!60]   (track)  -- (reg);
+\draw[arr, green!60]    (reg)    -- (api);
+\draw[arr, red!50]      (api)    -- (st);
+\draw[arr, gray]        (api)    -- (ext);
+
+% ── Labels ────────────────────────────────────────────────────
+\node[font=\tiny, above=2pt, gray] at ($(silver)!0.5!(feat)$) {rolling windows};
+\node[font=\tiny, above=2pt, gray] at ($(feat)!0.5!(train)$)  {X, y dataframe};
+\node[font=\tiny, above=2pt, gray] at ($(train)!0.5!(track)$) {mlflow.log\_*};
+\node[font=\tiny, above=2pt, gray] at ($(track)!0.5!(reg)$)   {register\_model};
+\node[font=\tiny, above=2pt, gray] at ($(reg)!0.5!(api)$)     {models:/name/latest};
+
+% ── SMOTE note ────────────────────────────────────────────────
+\node[draw=orange!40, fill=orange!10, rounded corners=3pt,
+      font=\tiny, align=center,
+      below=0.8cm of train] (smote)
+  {imblearn Pipeline:\\SMOTE $\to$ XGBClassifier\\scale\_pos\_weight=1};
+\draw[dashed, orange!50, -Stealth] (smote) -- (train);
+
+\end{tikzpicture}
+\end{center}
+
+\vspace{0.5em}
+
+\begin{center}
+\small
+\begin{tabular}{llll}
+\toprule
+Model & Task & Silver Feature Engineering & Metric \\
+\midrule
+\texttt{delivery-delay-xgb} & Regression & 6-table join, same\_state flag & MAE $\approx$5.8 ngày \\
+\texttt{customer-churn-xgb} & Classifier & Temporal split, window 30/90/180d & AUC $\approx$0.54 \\
+\texttt{lead-scoring-xgb}   & Classifier & Marketing join, dayofweek & AUC $\approx$0.67 \\
+\texttt{review-sentiment-bertimbau} & NLP & stg\_order\_reviews (Portuguese) & 5-aspect \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\end{tcolorbox}
+
+\vspace{1em}
+
+% ── Diagram: Agentic BI Flow ──────────────────────────────────
+\begin{tcolorbox}[colback=gray!5, colframe=p4color!30, arc=6pt,
+  title={\faSitemap\ Sơ đồ 5 — Agentic BI: Claude Tool Use Loop}]
+
+\begin{center}
+\begin{tikzpicture}[
+  node distance=0.4cm and 0.85cm,
+  box/.style={
+    draw, rounded corners=4pt, minimum width=2.6cm,
+    minimum height=0.8cm, align=center, font=\small, line width=1pt
+  },
+  arr/.style={-Stealth, line width=1.2pt},
+]
+
+\node[box, fill=gray!15, draw=gray] (user)
+  {User\\{\tiny câu hỏi tự nhiên}};
+
+\node[box, fill=blue!15, draw=blue!60,
+      right=of user] (intent)
+  {Intent Classify\\{\tiny DATA/FOLLOWUP/SMALL}};
+
+\node[box, fill=purple!15, draw=purple!60,
+      right=of intent] (claude)
+  {Claude claude-sonnet-4-6\\{\tiny Tool Use API}};
+
+\node[box, fill=orange!20, draw=orange!60,
+      right=of claude] (tool)
+  {query\_database\\{\tiny tool call + SQL}};
+
+\node[box, fill=gold!30, draw=gold!80,
+      right=of tool] (duckdb)
+  {DuckDB\\{\tiny in-memory views}};
+
+\node[box, fill=gold!20, draw=gold!60,
+      above=0.5cm of duckdb] (iceberg)
+  {Gold Iceberg\\{\tiny 5 tables via PyIceberg}};
+
+\node[box, fill=green!15, draw=green!60,
+      below=of claude] (insight)
+  {Business Insight\\{\tiny + chart type}};
+
+\node[box, fill=gray!15, draw=gray,
+      left=of insight] (render)
+  {Streamlit\\{\tiny Plotly + dataframe}};
+
+% arrows
+\draw[arr, gray]       (user)    -- (intent);
+\draw[arr, blue!60]    (intent)  -- (claude);
+\draw[arr, purple!60]  (claude)  -- node[font=\tiny,above]{tool\_use} (tool);
+\draw[arr, orange!60]  (tool)    -- (duckdb);
+\draw[arr, gold!80]    (iceberg) -- (duckdb);
+\draw[arr, orange!60]  (duckdb)  -- node[font=\tiny,right]{result rows} (tool);
+\draw[arr, purple!60]  (tool)    to[bend right=30]
+                       node[font=\tiny,right]{tool\_result} (claude);
+\draw[arr, purple!60]  (claude)  -- node[font=\tiny,right]{summary} (insight);
+\draw[arr, green!60]   (insight) -- (render);
+
+% loop annotation
+\node[font=\tiny, text=purple!70, above=0.1cm of claude]
+  {$\circlearrowleft$ multi-call loop (max 3 queries)};
+
+\end{tikzpicture}
+\end{center}
+\end{tcolorbox}
+
+\newpage
+
+% ============================================================
+\section{Phụ lục — Q\&A Backup}
+% ============================================================
+
+\begin{tcolorbox}[colback=blue!5, colframe=blue!40, arc=6pt,
+  title={\faQuestion\ Câu hỏi thường gặp — Trả lời ngắn}]
+
+\renewcommand{\arraystretch}{1.6}
+\begin{tabularx}{\textwidth}{>{\bfseries}p{5.5cm} X}
+\toprule
+Câu hỏi & Trả lời \\
+\midrule
+Tại sao không dùng Airflow? &
+Prefect decorator \texttt{@flow}/\texttt{@task} Python-native hơn, Cloud UI free tier,
+monitoring real-time tốt hơn DAG view tĩnh của Airflow. \\
+
+Tại sao không dùng dbt? &
+PySpark đọc/ghi Iceberg native, cùng engine xử lý small và TB-scale,
+không cần thêm toolchain (dbt CLI, profiles.yml, adapters). \\
+
+AUC churn chỉ 0.54? &
+Dataset kết thúc tháng 10/2018. Chỉ 240 khách mua trong 90 ngày cuối
+$\to$ label window cực kỳ sparse. Đây là limitation của dataset, không phải model.
+Temporal split đúng cách (không data leakage) mới quan trọng hơn AUC tuyệt đối. \\
+
+Chi phí thực tế? &
+Cloudflare R2: free egress, 10~GB storage miễn phí. Toàn bộ tính toán
+chạy local Docker. Chi phí duy nhất: Anthropic API $\approx$ \$0.02/câu hỏi. \\
+
+Scale được không? &
+Thay \texttt{local[2]} bằng \texttt{-{}-profile spark} để dùng Spark cluster.
+Iceberg + R2 designed for TB-scale. Prefect Cloud handle schedule cho fleet lớn. \\
+
+Tại sao Iceberg không phải Delta Lake? &
+Iceberg open standard (không gắn với Databricks), hỗ trợ PyIceberg Python client,
+REST catalog compatible với mọi engine (Spark, Trino, DuckDB, Flink). \\
+
+Streaming có real-time không? &
+Redpanda consumer append vào Bronze trong vài giây. Silver/Gold cần trigger Spark
+$\to$ latency phút, không giây. Đây là kiến trúc Lambda: near-real-time ở Bronze,
+batch ở Silver/Gold — hợp lý cho use case analytics. \\
+
+Tại sao SMOTE mà không \texttt{class\_weight}? &
+SMOTE tạo synthetic samples $\to$ model thấy diversity hơn trong training,
+không chỉ reweight loss. Kết hợp \texttt{scale\_pos\_weight=1} (sau SMOTE đã balanced)
+tránh double-correction. \\
+\bottomrule
+\end{tabularx}
+\end{tcolorbox}
+
+\vspace{1em}
+
+\begin{tcolorbox}[colback=red!5, colframe=red!40, arc=6pt,
+  title={\faTimesCircle\ Những thứ KHÔNG demo}]
+\begin{itemize}[leftmargin=1.5em, itemsep=4pt]
+  \item \textbf{Trino query federation} --- khởi động chậm, dễ timeout, dùng
+        \texttt{-{}-profile query} mới có
+  \item \textbf{Training lại model} --- mất 2--3 phút, không phù hợp live demo
+  \item \textbf{Soda Core runner thủ công} --- output dài, không visual
+  \item \textbf{Docker Compose logs raw} --- không readable trước giám khảo
+  \item \textbf{GitHub Actions CI} --- chỉ nên nhắc tên và show badge nếu có thời gian
+\end{itemize}
+\end{tcolorbox}
+
+% ============================================================
+\end{document}
+% ============================================================
