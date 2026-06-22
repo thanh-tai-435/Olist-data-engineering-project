@@ -145,6 +145,15 @@ resource "coder_app" "streamlit" {
   subdomain    = false
 }
 
+resource "coder_app" "marquez" {
+  agent_id     = coder_agent.main.id
+  slug         = "marquez"
+  display_name = "Marquez Lineage"
+  url          = "https://educators-mixer-quad-stocks.trycloudflare.com"
+  icon         = "https://avatars.githubusercontent.com/u/60117271"
+  external     = true
+}
+
 resource "docker_image" "workspace" {
   name         = "olist-workspace:latest"
   keep_locally = true

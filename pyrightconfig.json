@@ -1,3 +1,5 @@
 {
-  "extraPaths": ["ml/training"]
+  "extraPaths": ["ml/training"],
+  "ignore": ["spark/jobs"],
+  "reportMissingModuleSource": "none"
 }

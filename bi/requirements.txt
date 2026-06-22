@@ -1,5 +1,5 @@
 streamlit>=1.35.0
-anthropic>=0.30.0
+anthropic>=0.40.0
 pyiceberg[s3fs,pandas]==0.6.0
 duckdb>=0.10.0
 pandas>=2.0.0

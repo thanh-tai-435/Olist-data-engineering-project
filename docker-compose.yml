@@ -471,7 +471,7 @@ services:
   # CLOUD IDE – CODER
   # Profile: --profile coder
   # Local UI:   http://localhost:7080
-  # Team URL:   ${CODER_ACCESS_URL}  (via Cloudflare Tunnel)
+  # Team URL:   ${CODER_ACCESS_URL}  (via ngrok static domain)
   # Docs:       CODER_SETUP.md
   #
   # Coder tạo workspace containers trên Docker host.
@@ -539,18 +539,19 @@ services:
       - lakehouse
 
   # ──────────────────────────────────────────────────────────
-  # CLOUDFLARE TUNNEL – truy cập Coder từ mọi mạng (miễn phí)
+  # NGROK TUNNEL – truy cập Coder từ mọi mạng
   # Profile: --profile coder
-  # URL động — xem log: docker logs olist-cf-coder 2>&1 | grep trycloudflare
-  # Không cần token, không tốn credit
+  # URL cố định: https://${NGROK_STATIC_DOMAIN}
   # ──────────────────────────────────────────────────────────
 
-  cf-coder:
-    image: cloudflare/cloudflared:latest
-    container_name: olist-cf-coder
+  ngrok:
+    image: ngrok/ngrok:latest
+    container_name: olist-ngrok
     restart: unless-stopped
     profiles: ["coder"]
-    command: tunnel --url http://coder:7080
+    command: http coder:7080 --domain=${NGROK_STATIC_DOMAIN} --log=stdout
+    environment:
+      NGROK_AUTHTOKEN: ${NGROK_AUTHTOKEN}
     depends_on:
       coder:
         condition: service_healthy

@@ -1,22 +1,25 @@
 """
-Silver Layer Transform – Bronze Iceberg → Silver Iceberg on R2.
+Silver Layer Transform – incremental MERGE INTO with watermark tracking.
 
-Chạy theo 2 chế độ:
-  local[2]  (mặc định) – prefect-worker, không cần Spark cluster
-  cluster   – set SPARK_MASTER=spark://spark-master:7077 + profile spark
+Chế độ hoạt động:
+  - Lần đầu chạy (Silver tables chưa tồn tại): full load (createOrReplace)
+  - Lần sau: chỉ đọc Bronze records MỚI (filter _ingested_at > watermark)
+             rồi MERGE INTO Silver (upsert: update matched + insert new)
 
-Tables tạo ra trong namespace olist.silver:
-  stg_orders, stg_order_items, stg_order_payments, stg_order_reviews,
-  stg_products, stg_sellers, stg_customers,
-  stg_marketing_leads, stg_marketing_deals,
-  int_orders_enriched (intermediate join, dùng bởi Gold layer)
+Watermark mỗi bảng lưu riêng trong PostgreSQL (bảng pipeline_watermarks).
+int_orders_enriched union affected order_ids từ TẤT CẢ Bronze sources để
+catch cả orders có review/payment mới (không chỉ đơn hàng mới).
 """
 import logging
 import os
+import sys
 
-from pyspark.sql import SparkSession
+from pyspark.sql import DataFrame, SparkSession
 from pyspark.sql import functions as F
 from pyspark.sql.window import Window
+
+sys.path.insert(0, os.path.dirname(__file__))
+import watermark as wm
 
 logging.basicConfig(
     level=logging.INFO,
@@ -25,26 +28,25 @@ logging.basicConfig(
 )
 log = logging.getLogger(__name__)
 
-# ── Config từ environment variables ──────────────────────────────────────────
-SPARK_MASTER      = os.environ.get("SPARK_MASTER", "local[2]")
-ICEBERG_URI       = os.environ.get("ICEBERG_REST_URI", "http://iceberg-rest:8181")
-S3_ENDPOINT       = os.environ["S3_ENDPOINT"]
-S3_ACCESS_KEY     = os.environ["S3_ACCESS_KEY"]
-S3_SECRET_KEY     = os.environ["S3_SECRET_KEY"]
-BUCKET            = "retail-data-lake"
-JARS_DIR          = os.environ.get("SPARK_JARS_DIR", "/app/spark-jars")
-OPENLINEAGE_URL   = os.environ.get("OPENLINEAGE_URL", "http://marquez:5002")
+SPARK_MASTER    = os.environ.get("SPARK_MASTER",     "local[2]")
+ICEBERG_URI     = os.environ.get("ICEBERG_REST_URI", "http://iceberg-rest:8181")
+S3_ENDPOINT     = os.environ["S3_ENDPOINT"]
+S3_ACCESS_KEY   = os.environ["S3_ACCESS_KEY"]
+S3_SECRET_KEY   = os.environ["S3_SECRET_KEY"]
+BUCKET          = "retail-data-lake"
+JARS_DIR        = os.environ.get("SPARK_JARS_DIR",   "/app/spark-jars")
+OPENLINEAGE_URL = os.environ.get("OPENLINEAGE_URL",  "http://marquez:5002")
 
 _JARS = ",".join([
     f"{JARS_DIR}/iceberg-spark-runtime-3.5_2.12-1.5.0.jar",
-    f"{JARS_DIR}/iceberg-aws-bundle-1.5.0.jar",   # AWS SDK v2 cho S3FileIO
+    f"{JARS_DIR}/iceberg-aws-bundle-1.5.0.jar",
     f"{JARS_DIR}/hadoop-aws-3.3.4.jar",
     f"{JARS_DIR}/aws-java-sdk-bundle-1.12.262.jar",
     f"{JARS_DIR}/openlineage-spark_2.12-1.50.0.jar",
 ])
 
 
-# ── SparkSession factory ──────────────────────────────────────────────────────
+# ── SparkSession ──────────────────────────────────────────────────────────────
 
 def get_spark(app_name: str = "olist-silver-transform") -> SparkSession:
     return (
@@ -52,12 +54,9 @@ def get_spark(app_name: str = "olist-silver-transform") -> SparkSession:
         .appName(app_name)
         .master(SPARK_MASTER)
         .config("spark.jars", _JARS)
-        # Iceberg SQL extensions
         .config("spark.sql.extensions",
                 "org.apache.iceberg.spark.extensions.IcebergSparkSessionExtensions")
-        # Iceberg REST catalog – tên catalog: "olist"
-        .config("spark.sql.catalog.olist",
-                "org.apache.iceberg.spark.SparkCatalog")
+        .config("spark.sql.catalog.olist",           "org.apache.iceberg.spark.SparkCatalog")
         .config("spark.sql.catalog.olist.type",      "rest")
         .config("spark.sql.catalog.olist.uri",       ICEBERG_URI)
         .config("spark.sql.catalog.olist.warehouse", f"s3://{BUCKET}")
@@ -68,7 +67,6 @@ def get_spark(app_name: str = "olist-silver-transform") -> SparkSession:
         .config("spark.sql.catalog.olist.s3.secret-access-key", S3_SECRET_KEY)
         .config("spark.sql.catalog.olist.s3.path-style-access", "false")
         .config("spark.sql.catalog.olist.client.region",        "us-east-1")
-        # Hadoop S3A (cho direct file reads nếu cần)
         .config("spark.hadoop.fs.s3a.endpoint",      S3_ENDPOINT)
         .config("spark.hadoop.fs.s3a.access.key",    S3_ACCESS_KEY)
         .config("spark.hadoop.fs.s3a.secret.key",    S3_SECRET_KEY)
@@ -77,11 +75,8 @@ def get_spark(app_name: str = "olist-silver-transform") -> SparkSession:
                 "org.apache.hadoop.fs.s3a.S3AFileSystem")
         .config("spark.hadoop.fs.s3a.aws.credentials.provider",
                 "org.apache.hadoop.fs.s3a.SimpleAWSCredentialsProvider")
-        # Tune cho dataset nhỏ (~200 MB)
         .config("spark.sql.shuffle.partitions", "8")
         .config("spark.default.parallelism",    "4")
-        # OpenLineage: emit Bronze→Silver lineage events to Marquez
-        # Spark continues normally if Marquez is offline (graceful failure)
         .config("spark.extraListeners",
                 "io.openlineage.spark.agent.OpenLineageSparkListener")
         .config("spark.openlineage.transport.type", "http")
@@ -91,26 +86,70 @@ def get_spark(app_name: str = "olist-silver-transform") -> SparkSession:
     )
 
 
-# ── Helper ────────────────────────────────────────────────────────────────────
+# ── Core helpers ──────────────────────────────────────────────────────────────
 
-def _write(df, table: str) -> None:
-    """createOrReplace: idempotent, tạo bảng lần đầu hoặc refresh toàn bộ."""
-    df.writeTo(table).createOrReplace()
-    log.info("    ✓ %s  (%d rows)", table, df.count())
+def _table_exists(spark: SparkSession, table: str) -> bool:
+    try:
+        spark.table(table)
+        return True
+    except Exception:
+        return False
+
+
+def _merge_or_create(
+    spark: SparkSession,
+    df: DataFrame,
+    table: str,
+    pk: "str | list[str]",
+) -> int:
+    """
+    Initial run  → createOrReplace (builds table schema + data).
+    Subsequent   → MERGE INTO on pk (upsert: update existing, insert new).
+    Returns number of rows in the source batch (0 = skipped).
+    """
+    n = df.count()
+    if n == 0:
+        log.info("    → %s: no new rows, skipping", table)
+        return 0
+
+    if not _table_exists(spark, table):
+        df.writeTo(table).createOrReplace()
+        log.info("    ✓ %s  initial load  (%d rows)", table, n)
+        return n
+
+    pks = [pk] if isinstance(pk, str) else list(pk)
+    on_clause = " AND ".join(f"t.{k} = s.{k}" for k in pks)
+
+    df.createOrReplaceTempView("_merge_src")
+    spark.sql(f"""
+        MERGE INTO {table} t
+        USING (SELECT * FROM _merge_src) s ON ({on_clause})
+        WHEN MATCHED     THEN UPDATE SET *
+        WHEN NOT MATCHED THEN INSERT *
+    """)
+    log.info("    ✓ %s  merged  (%d rows)", table, n)
+    return n
+
+
+def _max_ingested_at(df: DataFrame) -> str:
+    """Max _ingested_at from the filtered Bronze batch."""
+    return str(df.agg(F.max("_ingested_at")).collect()[0][0])
+
+
+def _wm_filter(df: DataFrame, last_wm: str) -> DataFrame:
+    return df.filter(F.col("_ingested_at") > F.lit(last_wm).cast("timestamp"))
 
 
 # ── Staging transforms ────────────────────────────────────────────────────────
 
-def transform_stg_orders(spark: SparkSession) -> None:
-    log.info("  → stg_orders")
-    df = spark.table("olist.bronze.ecommerce_orders")
+def transform_stg_orders(spark: SparkSession, last_wm: str) -> None:
+    log.info("  → stg_orders  (since %s)", last_wm)
+    bronze = _wm_filter(spark.table("olist.bronze.ecommerce_orders"), last_wm)
 
     result = (
-        df
+        bronze
         .select(
-            "order_id",
-            "customer_id",
-            "order_status",
+            "order_id", "customer_id", "order_status",
             F.col("order_purchase_timestamp").cast("timestamp").alias("purchased_at"),
             F.col("order_approved_at").cast("timestamp").alias("approved_at"),
             F.col("order_delivered_carrier_date").cast("timestamp").alias("shipped_at"),
@@ -129,85 +168,95 @@ def transform_stg_orders(spark: SparkSession) -> None:
         .filter(F.col("order_id").isNotNull())
         .dropDuplicates(["order_id"])
     )
-    _write(result, "olist.silver.stg_orders")
+
+    n = _merge_or_create(spark, result, "olist.silver.stg_orders", "order_id")
+    if n > 0:
+        wm.save("silver.stg_orders", _max_ingested_at(bronze))
 
 
-def transform_stg_order_items(spark: SparkSession) -> None:
-    log.info("  → stg_order_items")
-    df = spark.table("olist.bronze.ecommerce_order_items")
+def transform_stg_order_items(spark: SparkSession, last_wm: str) -> None:
+    log.info("  → stg_order_items  (since %s)", last_wm)
+    bronze = _wm_filter(spark.table("olist.bronze.ecommerce_order_items"), last_wm)
 
     result = (
-        df
+        bronze
         .select(
             "order_id",
             F.col("order_item_id").cast("int"),
-            "product_id",
-            "seller_id",
+            "product_id", "seller_id",
             F.col("shipping_limit_date").cast("timestamp"),
             F.col("price").cast("double"),
             F.col("freight_value").cast("double"),
         )
         .filter(F.col("order_id").isNotNull())
     )
-    _write(result, "olist.silver.stg_order_items")
+
+    n = _merge_or_create(spark, result, "olist.silver.stg_order_items",
+                         ["order_id", "order_item_id"])
+    if n > 0:
+        wm.save("silver.stg_order_items", _max_ingested_at(bronze))
 
 
-def transform_stg_order_payments(spark: SparkSession) -> None:
-    """Aggregate: 1 row per order (total value + dominant payment type)."""
-    log.info("  → stg_order_payments")
-    df = spark.table("olist.bronze.ecommerce_order_payments")
+def transform_stg_order_payments(spark: SparkSession, last_wm: str) -> None:
+    log.info("  → stg_order_payments  (since %s)", last_wm)
+    bronze = _wm_filter(spark.table("olist.bronze.ecommerce_order_payments"), last_wm)
 
     result = (
-        df
+        bronze
         .filter(F.col("order_id").isNotNull())
         .groupBy("order_id")
         .agg(
             F.sum(F.col("payment_value").cast("double")).alias("payment_value"),
-            # payment type với payment_sequential = 1 là chính
             F.first(
                 F.when(F.col("payment_sequential").cast("int") == 1,
-                       F.col("payment_type"))
+                       F.col("payment_type")),
+                ignorenulls=True,
             ).alias("payment_type"),
-            F.greatest(F.max(F.col("payment_installments").cast("int")), F.lit(1)).alias("max_installments"),
+            F.greatest(
+                F.max(F.col("payment_installments").cast("int")), F.lit(1)
+            ).alias("max_installments"),
             F.count("*").alias("payment_count"),
         )
     )
-    _write(result, "olist.silver.stg_order_payments")
+
+    n = _merge_or_create(spark, result, "olist.silver.stg_order_payments", "order_id")
+    if n > 0:
+        wm.save("silver.stg_order_payments", _max_ingested_at(bronze))
 
 
-def transform_stg_order_reviews(spark: SparkSession) -> None:
-    """Dedup: 1 review per order (lấy review mới nhất)."""
-    log.info("  → stg_order_reviews")
-    df = spark.table("olist.bronze.ecommerce_order_reviews")
+def transform_stg_order_reviews(spark: SparkSession, last_wm: str) -> None:
+    log.info("  → stg_order_reviews  (since %s)", last_wm)
+    bronze = _wm_filter(spark.table("olist.bronze.ecommerce_order_reviews"), last_wm)
 
     w = Window.partitionBy("order_id").orderBy(
         F.col("review_answer_timestamp").cast("timestamp").desc()
     )
 
     result = (
-        df
+        bronze
         .filter(F.col("order_id").isNotNull())
         .withColumn("_rn", F.row_number().over(w))
         .filter(F.col("_rn") == 1)
         .select(
-            "order_id",
-            "review_id",
+            "order_id", "review_id",
             F.col("review_score").cast("int"),
-            "review_comment_title",
-            "review_comment_message",
+            "review_comment_title", "review_comment_message",
             F.col("review_creation_date").cast("timestamp"),
             F.col("review_answer_timestamp").cast("timestamp"),
         )
     )
-    _write(result, "olist.silver.stg_order_reviews")
+
+    n = _merge_or_create(spark, result, "olist.silver.stg_order_reviews", "order_id")
+    if n > 0:
+        wm.save("silver.stg_order_reviews", _max_ingested_at(bronze))
 
 
-def transform_stg_products(spark: SparkSession) -> None:
-    log.info("  → stg_products")
-    df = spark.table("olist.bronze.ecommerce_products")
+def transform_stg_products(spark: SparkSession, last_wm: str) -> None:
+    log.info("  → stg_products  (since %s)", last_wm)
+    bronze = _wm_filter(spark.table("olist.bronze.ecommerce_products"), last_wm)
 
     result = (
-        df
+        bronze
         .filter(F.col("product_id").isNotNull())
         .select(
             "product_id",
@@ -226,52 +275,58 @@ def transform_stg_products(spark: SparkSession) -> None:
         )
         .dropDuplicates(["product_id"])
     )
-    _write(result, "olist.silver.stg_products")
+
+    n = _merge_or_create(spark, result, "olist.silver.stg_products", "product_id")
+    if n > 0:
+        wm.save("silver.stg_products", _max_ingested_at(bronze))
 
 
-def transform_stg_sellers(spark: SparkSession) -> None:
-    log.info("  → stg_sellers")
-    df = spark.table("olist.bronze.ecommerce_sellers")
+def transform_stg_sellers(spark: SparkSession, last_wm: str) -> None:
+    log.info("  → stg_sellers  (since %s)", last_wm)
+    bronze = _wm_filter(spark.table("olist.bronze.ecommerce_sellers"), last_wm)
 
     result = (
-        df
+        bronze
         .filter(F.col("seller_id").isNotNull())
         .select(
-            "seller_id",
-            "seller_zip_code_prefix",
+            "seller_id", "seller_zip_code_prefix",
             F.trim(F.lower(F.col("seller_city"))).alias("seller_city"),
             F.upper(F.col("seller_state")).alias("seller_state"),
         )
         .dropDuplicates(["seller_id"])
     )
-    _write(result, "olist.silver.stg_sellers")
+
+    n = _merge_or_create(spark, result, "olist.silver.stg_sellers", "seller_id")
+    if n > 0:
+        wm.save("silver.stg_sellers", _max_ingested_at(bronze))
 
 
-def transform_stg_customers(spark: SparkSession) -> None:
-    log.info("  → stg_customers")
-    df = spark.table("olist.bronze.ecommerce_customers")
+def transform_stg_customers(spark: SparkSession, last_wm: str) -> None:
+    log.info("  → stg_customers  (since %s)", last_wm)
+    bronze = _wm_filter(spark.table("olist.bronze.ecommerce_customers"), last_wm)
 
     result = (
-        df
+        bronze
         .filter(F.col("customer_id").isNotNull())
         .select(
-            "customer_id",
-            "customer_unique_id",
-            "customer_zip_code_prefix",
+            "customer_id", "customer_unique_id", "customer_zip_code_prefix",
             F.trim(F.lower(F.col("customer_city"))).alias("customer_city"),
             F.upper(F.col("customer_state")).alias("customer_state"),
         )
         .dropDuplicates(["customer_id"])
     )
-    _write(result, "olist.silver.stg_customers")
+
+    n = _merge_or_create(spark, result, "olist.silver.stg_customers", "customer_id")
+    if n > 0:
+        wm.save("silver.stg_customers", _max_ingested_at(bronze))
 
 
-def transform_stg_marketing_leads(spark: SparkSession) -> None:
-    log.info("  → stg_marketing_leads")
-    df = spark.table("olist.bronze.marketing_leads")
+def transform_stg_marketing_leads(spark: SparkSession, last_wm: str) -> None:
+    log.info("  → stg_marketing_leads  (since %s)", last_wm)
+    bronze = _wm_filter(spark.table("olist.bronze.marketing_leads"), last_wm)
 
     result = (
-        df
+        bronze
         .filter(F.col("mql_id").isNotNull())
         .select(
             "mql_id",
@@ -281,19 +336,21 @@ def transform_stg_marketing_leads(spark: SparkSession) -> None:
         )
         .dropDuplicates(["mql_id"])
     )
-    _write(result, "olist.silver.stg_marketing_leads")
+
+    n = _merge_or_create(spark, result, "olist.silver.stg_marketing_leads", "mql_id")
+    if n > 0:
+        wm.save("silver.stg_marketing_leads", _max_ingested_at(bronze))
 
 
-def transform_stg_marketing_deals(spark: SparkSession) -> None:
-    log.info("  → stg_marketing_deals")
-    df = spark.table("olist.bronze.marketing_deals")
+def transform_stg_marketing_deals(spark: SparkSession, last_wm: str) -> None:
+    log.info("  → stg_marketing_deals  (since %s)", last_wm)
+    bronze = _wm_filter(spark.table("olist.bronze.marketing_deals"), last_wm)
 
     result = (
-        df
+        bronze
         .filter(F.col("mql_id").isNotNull())
         .select(
-            "mql_id",
-            "seller_id",
+            "mql_id", "seller_id",
             F.col("won_date").cast("date"),
             F.coalesce(F.col("business_segment"), F.lit("unknown")).alias("business_segment"),
             F.coalesce(F.col("lead_type"),         F.lit("unknown")).alias("lead_type"),
@@ -302,23 +359,57 @@ def transform_stg_marketing_deals(spark: SparkSession) -> None:
         )
         .dropDuplicates(["mql_id"])
     )
-    _write(result, "olist.silver.stg_marketing_deals")
+
+    n = _merge_or_create(spark, result, "olist.silver.stg_marketing_deals", "mql_id")
+    if n > 0:
+        wm.save("silver.stg_marketing_deals", _max_ingested_at(bronze))
 
 
-# ── Intermediate join (dùng bởi Gold) ────────────────────────────────────────
+# ── Intermediate join ─────────────────────────────────────────────────────────
 
-def transform_int_orders_enriched(spark: SparkSession) -> None:
+def transform_int_orders_enriched(spark: SparkSession, prev_wm: dict) -> None:
     """
-    Denormalized order table: orders + customers + items agg + payments + reviews.
-    Gold layer đọc bảng này thay vì join nhiều bảng Silver.
+    MERGE INTO int_orders_enriched cho các orders bị ảnh hưởng trong run này.
+
+    Union order_ids từ TẤT CẢ Bronze sources để catch:
+      - Đơn hàng mới (Bronze orders)
+      - Review mới cho đơn cũ (Bronze reviews)
+      - Payment mới/cập nhật (Bronze payments)
+      - Item mới (Bronze order_items)
     """
     log.info("  → int_orders_enriched")
 
-    orders    = spark.table("olist.silver.stg_orders")
+    def _new_ids(bronze_table: str, wm_key: str) -> DataFrame:
+        return (
+            _wm_filter(spark.table(bronze_table), prev_wm[wm_key])
+            .select("order_id")
+            .filter(F.col("order_id").isNotNull())
+        )
+
+    affected_order_ids = (
+        _new_ids("olist.bronze.ecommerce_orders",       "orders")
+        .union(_new_ids("olist.bronze.ecommerce_order_items",    "items"))
+        .union(_new_ids("olist.bronze.ecommerce_order_payments", "payments"))
+        .union(_new_ids("olist.bronze.ecommerce_order_reviews",  "reviews"))
+        .distinct()
+        .cache()
+    )
+
+    n_affected = affected_order_ids.count()
+    if n_affected == 0:
+        log.info("    → int_orders_enriched: no affected orders, skipping")
+        affected_order_ids.unpersist()
+        return
+
+    log.info("    %d affected orders", n_affected)
+
+    orders    = spark.table("olist.silver.stg_orders") \
+                     .join(affected_order_ids, "order_id", "inner")
     customers = spark.table("olist.silver.stg_customers").select(
         "customer_id", "customer_unique_id", "customer_city", "customer_state"
     )
-    items     = spark.table("olist.silver.stg_order_items")
+    items     = spark.table("olist.silver.stg_order_items") \
+                     .join(affected_order_ids, "order_id", "inner")
     products  = spark.table("olist.silver.stg_products").select(
         "product_id", "product_weight_g", "product_category_name"
     )
@@ -329,7 +420,6 @@ def transform_int_orders_enriched(spark: SparkSession) -> None:
         "order_id", "review_score"
     )
 
-    # Aggregate items per order
     items_agg = (
         items
         .join(products, "product_id", "left")
@@ -344,16 +434,20 @@ def transform_int_orders_enriched(spark: SparkSession) -> None:
 
     result = (
         orders
-        .join(customers,  "customer_id", "left")
-        .join(items_agg,  "order_id",    "left")
-        .join(payments,   "order_id",    "left")
-        .join(reviews,    "order_id",    "left")
+        .join(customers, "customer_id", "left")
+        .join(items_agg, "order_id",    "left")
+        .join(payments,  "order_id",    "left")
+        .join(reviews,   "order_id",    "left")
         .withColumn(
             "delivery_delay_days",
             F.col("actual_delivery_days") - F.col("estimated_delivery_days"),
         )
+        # Timestamp cho Gold layer biết row này được refresh lúc nào
+        .withColumn("_silver_updated_at", F.current_timestamp())
     )
-    _write(result, "olist.silver.int_orders_enriched")
+
+    _merge_or_create(spark, result, "olist.silver.int_orders_enriched", "order_id")
+    affected_order_ids.unpersist()
 
 
 # ── Main ──────────────────────────────────────────────────────────────────────
@@ -362,16 +456,30 @@ def run_silver(spark: SparkSession) -> None:
     log.info("=== SILVER TRANSFORM START ===")
     spark.sql("CREATE NAMESPACE IF NOT EXISTS olist.silver")
 
-    transform_stg_orders(spark)
-    transform_stg_order_items(spark)
-    transform_stg_order_payments(spark)
-    transform_stg_order_reviews(spark)
-    transform_stg_products(spark)
-    transform_stg_sellers(spark)
-    transform_stg_customers(spark)
-    transform_stg_marketing_leads(spark)
-    transform_stg_marketing_deals(spark)
-    transform_int_orders_enriched(spark)
+    # Capture watermarks TRƯỚC khi chạy bất kỳ transform nào.
+    # Dùng để lọc Bronze → chỉ lấy records mới trong run này.
+    prev_wm = {
+        "orders":    wm.get("silver.stg_orders"),
+        "items":     wm.get("silver.stg_order_items"),
+        "payments":  wm.get("silver.stg_order_payments"),
+        "reviews":   wm.get("silver.stg_order_reviews"),
+        "products":  wm.get("silver.stg_products"),
+        "sellers":   wm.get("silver.stg_sellers"),
+        "customers": wm.get("silver.stg_customers"),
+        "leads":     wm.get("silver.stg_marketing_leads"),
+        "deals":     wm.get("silver.stg_marketing_deals"),
+    }
+
+    transform_stg_orders(spark,            prev_wm["orders"])
+    transform_stg_order_items(spark,       prev_wm["items"])
+    transform_stg_order_payments(spark,    prev_wm["payments"])
+    transform_stg_order_reviews(spark,     prev_wm["reviews"])
+    transform_stg_products(spark,          prev_wm["products"])
+    transform_stg_sellers(spark,           prev_wm["sellers"])
+    transform_stg_customers(spark,         prev_wm["customers"])
+    transform_stg_marketing_leads(spark,   prev_wm["leads"])
+    transform_stg_marketing_deals(spark,   prev_wm["deals"])
+    transform_int_orders_enriched(spark,   prev_wm)
 
     log.info("=== SILVER TRANSFORM COMPLETE ===")
 

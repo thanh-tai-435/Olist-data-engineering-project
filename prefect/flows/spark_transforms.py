@@ -15,15 +15,13 @@ from prefect.artifacts import create_markdown_artifact
 
 from prefect import flow, get_run_logger, task
 
-# spark/jobs/ được mount vào /app/spark/jobs trong prefect-worker container
-_JOBS_DIR = Path(__file__).parents[1] / "spark" / "jobs"
-if str(_JOBS_DIR) not in sys.path:
-    sys.path.insert(0, str(_JOBS_DIR))
-
-# Fallback khi chạy local ngoài Docker (dev)
-_LOCAL_JOBS_DIR = Path(__file__).parents[2] / "spark" / "jobs"
-if str(_LOCAL_JOBS_DIR) not in sys.path:
-    sys.path.insert(0, str(_LOCAL_JOBS_DIR))
+# spark/jobs/ → /app/spark/jobs trong Docker, <repo>/spark/jobs khi dev local
+for _candidate in [
+    Path(__file__).parents[2] / "spark" / "jobs",   # /app/spark/jobs (Docker)
+    Path(__file__).parents[3] / "spark" / "jobs",   # <repo>/spark/jobs (local dev)
+]:
+    if _candidate.is_dir() and str(_candidate) not in sys.path:
+        sys.path.insert(0, str(_candidate))
 
 
 # ── Tasks ─────────────────────────────────────────────────────────────────────

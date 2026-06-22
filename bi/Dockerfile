@@ -7,8 +7,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 WORKDIR /app
 
 RUN pip install --no-cache-dir \
-    streamlit==1.32.0 \
-    anthropic==0.26.0 \
+    streamlit==1.35.0 \
+    anthropic==0.49.0 \
     duckdb==0.10.0 \
     pyiceberg[s3fs,pandas]==0.6.0 \
     plotly==5.20.0 \
