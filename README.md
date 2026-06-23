@@ -1,40 +1,51 @@
 # Olist Data Lakehouse Platform
 
-An end-to-end **enterprise-grade data lakehouse** built on the Olist Brazilian E-Commerce dataset (~100K orders). Implements the full modern data stack: Lambda architecture, Medallion layers on Apache Iceberg, ML feature pipelines, LLM-powered Agentic BI, and data lineage — all running locally via Docker Compose.
+Nền tảng **data lakehouse cấp doanh nghiệp** xây dựng trên bộ dữ liệu thương mại điện tử Olist Brazil (~100K đơn hàng). Triển khai đầy đủ modern data stack: kiến trúc Lambda, Medallion Layers trên Apache Iceberg, ML feature pipelines, Agentic BI tích hợp LLM, và data lineage — tất cả chạy local qua Docker Compose.
 
 ---
 
-## Architecture
+## Nhóm thực hiện
+
+| STT | Họ và tên | Vai trò |
+|---|---|---|
+| 1 | Phạm Trần Thanh Tài | Data Engineering, Data Quality & Lineage |
+| 2 | Đỗ Phúc Khang | BI & Serving Layer |
+| 3 | Nguyễn Nhật Huy | Machine Learning |
+| 4 | Thái Khương Anh Đức | Streaming & Orchestration |
+
+---
+
+## Kiến trúc tổng thể
 
 ```
 ┌─────────────────────────────────────────────────────────────────────┐
-│                         DATA SOURCES                                 │
-│   CSV files (Olist e-commerce + marketing funnel)  │  Synthetic stream│
+│                         NGUỒN DỮ LIỆU                               │
+│   File CSV (Olist e-commerce + marketing funnel)  │  Luồng tổng hợp │
 └──────────────────┬──────────────────────────────────────────────────┘
                    │ batch                              │ streaming
                    ▼                                    ▼
 ┌──────────────────────┐                  ┌─────────────────────────┐
-│   Bronze Ingestion   │                  │  Redpanda (Kafka-compat) │
+│   Nạp Bronze (Batch) │                  │  Redpanda (Kafka-compat) │
 │  PyIceberg append    │                  │  olist.orders / reviews  │
-│  10 Iceberg tables   │                  │  → Bronze Iceberg        │
+│  10 bảng Iceberg     │                  │  → Bronze Iceberg        │
 └──────────┬───────────┘                  └────────────┬────────────┘
            │                                           │
            └──────────────────┬────────────────────────┘
-                              │  Prefect orchestration
+                              │  Điều phối bởi Prefect
                               ▼
            ┌──────────────────────────────────────┐
-           │         SILVER LAYER (PySpark)        │
+           │        LỚP SILVER (PySpark)           │
            │  stg_orders, stg_sellers, stg_products│
            │  stg_customers, stg_order_items, ...  │
-           │  int_orders_enriched  (10 tables)     │
-           │  Iceberg MERGE INTO (incremental)     │
+           │  int_orders_enriched  (10 bảng)       │
+           │  Iceberg MERGE INTO (tăng dần)        │
            └──────────────────┬───────────────────┘
                               │
                     ┌─────────┼─────────┐
                     │ ML      │ Quality  │ Gold
                     ▼         ▼          ▼
            ┌──────────────┐  Soda  ┌──────────────────────┐
-           │Feature Pipelines│ Core │  GOLD LAYER (PySpark)│
+           │Feature Pipelines│ Core │  LỚP GOLD (PySpark)  │
            │Silver → XGBoost│      │  fct_orders (99K)    │
            │delivery, churn,│      │  fct_funnel  (8K)    │
            │lead scoring    │      │  dim_sellers (3K)    │
@@ -43,192 +54,229 @@ An end-to-end **enterprise-grade data lakehouse** built on the Olist Brazilian E
                   │                └──────────┬───────────┘
            ┌──────▼────────┐                  │
            │  MLflow       │          ┌───────▼──────────────────┐
-           │  Experiment   │          │   SERVING LAYER           │
-           │  Tracking +   │          │  Streamlit Agentic BI     │
+           │  Theo dõi     │          │   LỚP PHỤC VỤ (SERVING)  │
+           │  thí nghiệm + │          │  Streamlit Agentic BI     │
            │  Model Reg.   │          │  Claude API → DuckDB SQL  │
            │  FastAPI      │          │  Realtime Monitor         │
            │  /predict/*   │          │  ML Predictions page      │
            └───────────────┘          └──────────────────────────┘
 ```
 
-**Storage**: Cloudflare R2 (S3-compatible, free egress) · Apache Iceberg (ACID, time travel)  
-**Orchestration**: Prefect 3 (flows, tasks, quality gates, notifications)  
+**Lưu trữ**: Cloudflare R2 (S3-compatible, miễn phí egress) · Apache Iceberg (ACID, time travel)  
+**Điều phối**: Prefect 3 (flows, tasks, quality gates, notifications)  
 **Lineage**: OpenLineage (Spark listener) → Marquez (store + Web UI)
 
 ---
 
-## Stack
+## Công nghệ sử dụng
 
-| Layer | Technology | Purpose |
+| Tầng | Công nghệ | Mục đích |
 |---|---|---|
-| Storage | Cloudflare R2 + Apache Iceberg | S3-compatible object store; ACID transactions, time travel, schema evolution |
-| Streaming | Redpanda (Kafka-compatible) | Single-container broker; `olist.orders`, `olist.reviews`, `olist.leads` topics |
-| Ingestion | Python + PyIceberg | Batch CSV → Bronze; Streaming consumer → Bronze append-only |
-| Transform | PySpark 3.5 | Bronze → Silver (MERGE INTO), Silver → Gold (aggregations + partitioning) |
-| Quality | Soda Core | Automated checks on Bronze / Silver / Gold after each pipeline run |
-| Orchestration | Prefect 3 | `@flow` / `@task(retries=3)`, quality gates, failure webhooks, daily schedule |
-| Query Federation | Trino 435 | Join Iceberg + Postgres + CSV without ETL (`--profile query`) |
-| ML Training | XGBoost + scikit-learn + imblearn | Delivery delay (regression), churn (classifier), lead scoring (classifier) |
-| NLP | BERTimbau (PyTorch) | Portuguese review sentiment, 5-aspect scoring |
+| Lưu trữ | Cloudflare R2 + Apache Iceberg | Object store S3-compatible; ACID, time travel, schema evolution |
+| Streaming | Redpanda (Kafka-compatible) | Broker đơn container; topic `olist.orders`, `olist.reviews`, `olist.leads` |
+| Nạp dữ liệu | Python + PyIceberg | Batch CSV → Bronze; Streaming consumer → Bronze append-only |
+| Biến đổi | PySpark 3.5 | Bronze → Silver (MERGE INTO), Silver → Gold (tổng hợp + phân vùng) |
+| Chất lượng | Soda Core | Kiểm tra tự động Bronze / Silver / Gold sau mỗi lần chạy |
+| Điều phối | Prefect 3 | `@flow` / `@task(retries=3)`, quality gates, webhook thất bại, lịch hằng ngày |
+| Query Federation | Trino 435 | Join Iceberg + Postgres + CSV không cần ETL (`--profile query`) |
+| ML Training | XGBoost + scikit-learn + imblearn | Dự đoán giao trễ (regression), churn (classifier), lead scoring (classifier) |
+| NLP | BERTimbau (PyTorch) | Phân tích cảm xúc review tiếng Bồ Đào Nha, 5 khía cạnh |
 | ML Serving | FastAPI + MLflow | `/predict/delivery-delay`, `/predict/churn`, `/predict/lead` + batch endpoints |
-| Experiment Tracking | MLflow 2.13 | Experiment runs, metric logging, model registry, model versioning |
-| BI | Streamlit + Claude API | Natural language → intent → DuckDB SQL → chart + insight |
-| Lineage | OpenLineage + Marquez | Auto-emitted from Spark jobs; full Bronze → Silver → Gold DAG |
-| DevOps | Docker Compose + GitHub Actions | 20+ container services, profiles; CI: lint + syntax + compose + unit tests |
-| Remote Access | Cloudflare Tunnel | Zero-config HTTPS tunnels; no port forwarding needed |
+| Theo dõi thí nghiệm | MLflow 2.13 | Runs, metric logging, model registry, model versioning |
+| BI | Streamlit + Claude API | Ngôn ngữ tự nhiên → intent → DuckDB SQL → biểu đồ + insight |
+| Lineage | OpenLineage + Marquez | Tự phát ra từ Spark jobs; DAG Bronze → Silver → Gold đầy đủ |
+| DevOps | Docker Compose + GitHub Actions | 20+ dịch vụ container, profiles; CI: lint + syntax + compose + unit tests |
+| Truy cập từ xa | Cloudflare Tunnel | HTTPS tunnel không cần cấu hình port forwarding |
 
 ---
 
-## Medallion Architecture on Iceberg
+## Medallion Architecture trên Iceberg
 
 ```
-r2://olist-lakehouse/
-├── bronze/               # append-only, immutable, PyIceberg writes
+s3://retail-data-lake/
+├── bronze/               # append-only, bất biến, PyIceberg ghi
 │   ├── ecom/             # orders, order_items, products, sellers,
 │   │   └── ...           # customers, payments, reviews, geolocation
 │   └── marketing/        # leads, deals
-├── silver/               # PySpark MERGE INTO, incremental
-│   ├── stg_orders/       # cleaned types, derived fields
+├── silver/               # PySpark MERGE INTO, tăng dần
+│   ├── stg_orders/       # kiểu dữ liệu sạch, trường dẫn xuất
 │   ├── stg_sellers/
-│   ├── int_orders_enriched/   # 6-table join
-│   └── ...               # 10 tables total
-└── gold/                 # PySpark aggregations, partitioned by date
-    ├── fct_orders/        # 99,441 rows — BI-ready order facts
-    ├── fct_funnel/        # 8,000 rows — lead-to-deal conversion
-    ├── dim_sellers/       # 3,095 rows — seller metrics
-    ├── dim_customers/     # 96,096 rows — customer lifetime metrics
-    └── review_sentiment/  # 98,673 rows — BERTimbau scores per review
+│   ├── int_orders_enriched/   # join 6 bảng
+│   └── ...               # tổng 10 bảng
+├── gold/                 # PySpark tổng hợp, phân vùng theo ngày
+│   ├── fct_orders/        # 99.441 dòng — facts đơn hàng sẵn cho BI
+│   ├── fct_funnel/        # 8.000 dòng — tỷ lệ chuyển đổi lead → deal
+│   ├── dim_sellers/       # 3.095 dòng — chỉ số seller
+│   ├── dim_customers/     # 96.096 dòng — chỉ số lifetime khách hàng
+│   └── review_sentiment/  # 98.673 dòng — điểm BERTimbau (chạy sentiment_flow.py)
+└── mlflow/               # MLflow artifacts (model files, metrics)
 ```
 
 ---
 
-## ML Models
+## Mô hình ML
 
-| Model | Task | Data Source | Key Features | Metric |
+| Mô hình | Bài toán | Nguồn dữ liệu | Feature chính | Chỉ số |
 |---|---|---|---|---|
-| `delivery-delay-xgb` | Regression (days late) | Silver 6-table join | `seller_customer_same_state`, `total_weight_g`, `order_freight`, `avg_product_volume_cm3` | MAE ~5.8 days |
-| `customer-churn-xgb` | Binary classifier | Silver temporal split | Rolling windows 30/90/180d, `avg_days_between_orders`, `total_spend` | AUC ~0.54 (sparse label window) |
-| `lead-scoring-xgb` | Binary classifier | Silver marketing tables | `origin`, `first_contact_month`, `first_contact_dayofweek` | AUC ~0.67 |
-| `review-sentiment-bertimbau` | Multi-label NLP | Silver `stg_order_reviews` | Portuguese BERTimbau, 5 aspects: product quality, delivery speed, seller service, price/value, overall | — |
+| `delivery-delay-xgb` | Hồi quy (ngày trễ) | Silver join 6 bảng | `seller_customer_same_state`, `total_weight_g`, `order_freight`, `avg_product_volume_cm3` | MAE ~5.8 ngày |
+| `customer-churn-xgb` | Phân loại nhị phân | Silver temporal split | Rolling windows 30/90/180d, `avg_days_between_orders`, `total_spend` | AUC ~0.54 |
+| `lead-scoring-xgb` | Phân loại nhị phân | Silver marketing tables | `origin`, `first_contact_month`, `first_contact_dayofweek` | AUC ~0.67 |
+| `review-sentiment-bertimbau` | NLP đa nhãn | Silver `stg_order_reviews` | BERTimbau tiếng Bồ, 5 khía cạnh: chất lượng SP, tốc độ giao, dịch vụ seller, giá trị, tổng thể | — |
 
-All classifiers use SMOTE for imbalance handling (imblearn Pipeline, `scale_pos_weight=1`).  
-Features read from Silver (not Gold) to enable rolling windows and cross-table joins.
+Tất cả classifier dùng SMOTE để xử lý mất cân bằng nhãn (imblearn Pipeline).
 
 ---
 
-## Quick Start
+## Hướng dẫn chạy
 
-### Prerequisites
+### Yêu cầu hệ thống
 
-- Docker Desktop (16 GB RAM recommended)
-- `.env` file with credentials (see `.env.example`)
+- Docker Desktop (khuyến nghị **16 GB RAM**)
+- File `.env` với thông tin xác thực (xem `.env.example`)
+- Python 3.10+ (nếu chạy ngoài container)
+
+### Bước 1 — Clone và cấu hình
 
 ```bash
-# 1. Clone and configure
-git clone <repo>
+git clone <repo-url>
+cd olist-data-engineering-project
+
 cp .env.example .env
-# Fill in: AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY, S3_ENDPOINT (Cloudflare R2)
-#          ANTHROPIC_API_KEY, PREFECT_API_KEY (optional for Cloud)
+# Điền vào .env:
+#   AWS_ACCESS_KEY_ID        — R2 Access Key
+#   AWS_SECRET_ACCESS_KEY    — R2 Secret Key
+#   S3_ENDPOINT              — https://<account>.r2.cloudflarestorage.com
+#   ANTHROPIC_API_KEY        — API key Claude (dùng cho Agentic BI)
+#   PREFECT_API_KEY          — tuỳ chọn, nếu kết nối Prefect Cloud
+```
 
-# 2. Start core services
+### Bước 2 — Khởi động dịch vụ cốt lõi
+
+```bash
+# Khởi động: postgres, iceberg-rest, redpanda, prefect, mlflow, streamlit, ml-serving
 docker compose up -d
+```
 
-# 3. Ingest raw data into Bronze
+> Chờ khoảng 60–90 giây để tất cả dịch vụ sẵn sàng. Kiểm tra bằng:
+> ```bash
+> docker compose ps
+> ```
+
+### Bước 3 — Nạp dữ liệu thô vào Bronze
+
+```bash
 docker exec olist-prefect-worker python scripts/batch_ingest_bronze.py
+```
 
-# 4. Run Silver transform
+### Bước 4 — Biến đổi Silver và Gold
+
+```bash
+# Bronze → Silver (làm sạch, join, MERGE INTO)
 docker exec olist-prefect-worker python spark/jobs/silver_transform.py
 
-# 5. Run Gold transform
+# Silver → Gold (tổng hợp, phân vùng theo ngày)
 docker exec olist-prefect-worker python spark/jobs/gold_transform.py
+```
 
-# 6. Train ML models
+### Bước 5 — Huấn luyện mô hình ML
+
+```bash
 docker exec olist-prefect-worker python ml/training/train_delivery_model.py
 docker exec olist-prefect-worker python ml/training/train_churn_model.py
 docker exec olist-prefect-worker python ml/training/train_lead_scoring.py
-
-# 7. Open Streamlit BI
-open http://localhost:8501
 ```
 
-### Docker Compose Profiles
+### Bước 6 — Mở Streamlit BI
+
+Truy cập: [http://localhost:8501](http://localhost:8501)
+
+---
+
+## Các Profile cần bật theo nhu cầu
+
+Ngoài core services, bật thêm profile tương ứng khi cần tính năng mở rộng:
+
+| Profile | Lệnh bật | Dịch vụ được thêm | Khi nào cần |
+|---|---|---|---|
+| *(mặc định / core)* | `docker compose up -d` | postgres, iceberg-rest, redpanda, prefect-server, prefect-worker, mlflow, ml-serving, streamlit | Chạy pipeline cơ bản và BI |
+| **spark** | `docker compose --profile spark up -d` | spark-master, spark-worker | Khi cần Spark cluster mode (Silver/Gold transform quy mô lớn) |
+| **query** | `docker compose --profile query up -d` | trino | Khi cần query federation: join Iceberg + Postgres + CSV |
+| **lineage** | `docker compose --profile lineage up -d` | marquez, marquez-web | Khi muốn xem DAG lineage Bronze→Silver→Gold |
+
+**Bật nhiều profile cùng lúc:**
 
 ```bash
-docker compose up -d                    # core: postgres, iceberg, redpanda, prefect, mlflow, streamlit
-docker compose --profile spark up -d   # + spark-master, spark-worker (cluster mode)
-docker compose --profile query up -d   # + trino (query federation)
-docker compose --profile lineage up -d # + marquez, marquez-web (data lineage)
+docker compose --profile spark --profile lineage up -d
 ```
 
 ---
 
-## Service URLs
+## Chạy toàn bộ pipeline qua Prefect
 
-| Service | URL | Purpose |
-|---|---|---|
-| Streamlit BI | http://localhost:8501 | Agentic BI + Realtime Monitor + ML Predictions |
-| Prefect UI | http://localhost:4200 | Flow runs, schedules, task logs |
-| MLflow | http://localhost:5000 | Experiments, model registry |
-| ML Serving API | http://localhost:8090/docs | FastAPI prediction endpoints |
-| Redpanda Console | http://localhost:8080 | Kafka topics, consumer groups |
-| Marquez UI | http://localhost:5003 | Data lineage graph (Bronze→Silver→Gold) |
-| Iceberg REST | http://localhost:8181 | Catalog API |
+```bash
+# Chạy một lần: Bronze → Silver → Quality Gate → Gold → Quality Gate
+docker exec olist-prefect-worker python prefect/flows/full_pipeline.py
 
----
+# Chạy theo lịch hằng ngày (giữ tiến trình chạy nền)
+docker exec olist-prefect-worker python prefect/flows/full_pipeline.py --serve
+```
 
-## Prefect Flows
+### Các flow riêng lẻ
 
 ```
 prefect/flows/
 ├── bronze_ingestion.py   # CSV → Bronze Iceberg (batch)
-├── spark_transforms.py   # Silver transform + Gold transform tasks
-├── full_pipeline.py      # Bronze → Silver → Quality gate → Gold → Quality gate
-├── ml_training.py        # Train / retrain all 3 XGBoost models
-├── quality_checks.py     # Soda Core checks per layer, pause-on-fail
-├── sentiment_flow.py     # Score new reviews with BERTimbau → Gold
-└── notifications.py      # Webhook notifications on flow failure
+├── spark_transforms.py   # Silver + Gold transform tasks
+├── full_pipeline.py      # Pipeline đầy đủ Bronze → Silver → Gold
+├── ml_training.py        # Train / retrain 3 mô hình XGBoost
+├── quality_checks.py     # Soda Core checks từng lớp
+├── sentiment_flow.py     # Chấm điểm review mới bằng BERTimbau → Gold
+└── notifications.py      # Webhook thông báo khi flow thất bại
 ```
 
-Run the full pipeline:
+---
 
-```bash
-docker exec olist-prefect-worker python prefect/flows/full_pipeline.py
-```
+## URL các dịch vụ
 
-With daily schedule:
-
-```bash
-docker exec olist-prefect-worker python prefect/flows/full_pipeline.py --serve
-```
+| Dịch vụ | URL | Mô tả |
+|---|---|---|
+| Streamlit BI | http://localhost:8501 | Agentic BI + Realtime Monitor + ML Predictions |
+| Prefect UI | http://localhost:4200 | Quản lý flow runs, lịch, logs |
+| MLflow | http://localhost:5000 | Thí nghiệm, model registry |
+| ML Serving API | http://localhost:8090/docs | FastAPI endpoints dự đoán |
+| Redpanda Console | http://localhost:8080 | Kafka topics, consumer groups |
+| Spark Master UI | http://localhost:8085 | Spark cluster status *(profile spark)* |
+| Marquez UI | http://localhost:5003 | Đồ thị lineage Bronze→Silver→Gold *(profile lineage)* |
+| Iceberg REST | http://localhost:8181 | Catalog API |
 
 ---
 
 ## Agentic BI
 
-The BI layer uses **Claude claude-sonnet-4-6 with Tool Use** (multi-step agentic loop):
+Tầng BI dùng **Claude Sonnet với Tool Use** (vòng lặp agentic đa bước):
 
-1. User types a natural language question in Streamlit
-2. Claude classifies intent: `DATA_QUERY` / `FOLLOWUP` / `SMALLTALK`
-3. For data queries: Claude calls the `query_database` tool with SQL + chart type
-4. Tool executes SQL against DuckDB in-memory views of Gold Iceberg tables
-5. Claude receives the result, generates a business insight summary
-6. Streamlit renders the dataframe + Plotly chart + insight card
+1. Người dùng gõ câu hỏi ngôn ngữ tự nhiên trong Streamlit
+2. Claude phân loại ý định: `DATA_QUERY` / `FOLLOWUP` / `SMALLTALK`
+3. Với data query: Claude gọi tool `query_database` kèm SQL + loại biểu đồ
+4. Tool thực thi SQL trên DuckDB in-memory views của bảng Gold Iceberg
+5. Claude nhận kết quả, tạo tóm tắt insight nghiệp vụ
+6. Streamlit hiển thị dataframe + biểu đồ Plotly + insight card
 
-Supports multi-query: Claude can call the tool multiple times for complex comparisons.
+Hỗ trợ multi-query: Claude có thể gọi tool nhiều lần cho phân tích phức tạp.
 
 ```
-Example: "Phân tích toàn diện top 5 seller: doanh thu, review score, tỷ lệ giao trễ"
-→ Query 1: top 5 sellers by revenue
-→ Query 2: review scores for those sellers
-→ Query 3: delivery delay rate per seller
-→ Summary: consolidated insight with rankings
+Ví dụ: "Phân tích toàn diện top 5 seller: doanh thu, review score, tỷ lệ giao trễ"
+→ Query 1: top 5 sellers theo doanh thu
+→ Query 2: review scores của 5 sellers đó
+→ Query 3: tỷ lệ giao trễ mỗi seller
+→ Tổng kết: insight hợp nhất có xếp hạng
 ```
 
 ---
 
-## Data Quality
+## Chất lượng dữ liệu
 
-Soda Core checks run automatically after each pipeline layer:
+Soda Core tự động kiểm tra sau mỗi lớp pipeline:
 
 ```
 quality/checks/
@@ -241,8 +289,8 @@ quality/checks/
 
 ## Data Lineage
 
-OpenLineage emits events from Spark jobs automatically (no code changes needed).  
-View the Bronze → Silver → Gold DAG in Marquez: http://localhost:5003
+OpenLineage tự động phát sự kiện từ Spark jobs (không cần thay đổi code).  
+Xem DAG Bronze → Silver → Gold tại Marquez: http://localhost:5003
 
 ```
 olist_silver_transform → stg_orders, stg_sellers, ..., int_orders_enriched
@@ -253,34 +301,34 @@ olist_gold_transform   → fct_orders, fct_funnel, dim_sellers, dim_customers
 
 ## CI/CD (GitHub Actions)
 
-`.github/workflows/ci.yml` runs on every push and pull request to `main`:
+`.github/workflows/ci.yml` chạy trên mỗi push và pull request lên `main`:
 
-| Job | What it checks |
+| Job | Kiểm tra gì |
 |---|---|
-| **Lint** | `ruff check` + `ruff format --check` across all Python files |
-| **Syntax** | `py_compile` on every `.py` — catches import errors without needing deps |
-| **Validate Compose** | `docker compose config` — validates all service definitions |
+| **Lint** | `ruff check` + `ruff format --check` toàn bộ Python |
+| **Syntax** | `py_compile` mọi file `.py` — phát hiện lỗi import mà không cần cài deps |
+| **Validate Compose** | `docker compose config` — xác thực định nghĩa tất cả services |
 | **Unit Tests** | `pytest tests/` — pipeline logic, Soda check schemas, compose config |
 
 ---
 
-## Project Structure
+## Cấu trúc dự án
 
 ```
 olist-lakehouse/
 ├── docker-compose.yml
 ├── .env.example
 ├── streaming/              # producer.py (replay), consumer.py (→ Bronze)
-├── quality/checks/         # Soda Core YAML checks per layer
+├── quality/checks/         # Soda Core YAML checks từng lớp
 ├── spark/jobs/             # silver_transform.py, gold_transform.py
-├── prefect/flows/          # orchestration flows
+├── prefect/flows/          # các orchestration flow
 ├── ml/
 │   ├── training/           # features.py, train_*.py, utils.py
 │   ├── serving/            # FastAPI app.py
-│   └── sentiment/          # BERTimbau model, inference, drift detection
+│   └── sentiment/          # mô hình BERTimbau, inference, drift detection
 ├── bi/
 │   ├── agentic_bi.py       # Claude Tool Use → DuckDB SQL
-│   ├── agent.py            # LLM provider abstraction
+│   ├── agent.py            # abstraction LLM provider
 │   ├── database.py         # PyIceberg → DuckDB in-memory views
 │   └── pages/
 │       ├── 1_Realtime_Monitor.py
@@ -292,13 +340,13 @@ olist-lakehouse/
 
 ---
 
-## Dataset
+## Bộ dữ liệu
 
-**Olist Brazilian E-Commerce** (Kaggle): ~100K orders, 2016–2018  
+**Olist Brazilian E-Commerce** (Kaggle): ~100K đơn hàng, 2016–2018
 - `orders`, `order_items`, `order_payments`, `order_reviews`
 - `customers`, `sellers`, `products`, `geolocation`
 
-**Olist Marketing Funnel**: 8,000 qualified leads  
+**Olist Marketing Funnel**: 8.000 qualified leads
 - `marketing_qualified_leads`, `closed_deals`
 
-Scale: ~200 MB raw → production-grade architecture designed for TB-scale workloads.
+Quy mô: ~200 MB raw → kiến trúc cấp sản xuất thiết kế cho workload TB-scale.
